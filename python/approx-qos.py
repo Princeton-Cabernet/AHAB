@@ -54,7 +54,7 @@ class ApproxQos:
 
     def process_packet(self, packet_size: int, slice_id: int, packet_key: Tuple[int]):
         scaled_size = packet_size * self.scale_factors[slice_id]
-        flow_size = self.flow_size_sketch.return_then_add(packet_key, scaled_size)
+        flow_size = self.flow_size_sketch.add_after_return(packet_key, scaled_size)
         threshold = self.threshold_estimators[slice_id].get_current_threshold()
         if flow_size > threshold:
             self.drops[packet_key] += 1

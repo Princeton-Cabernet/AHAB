@@ -44,7 +44,7 @@ class HeavyHitterSketch(ABC):
         return NotImplemented
 
     @abstractmethod
-    def return_then_add(self, key: Tuple[int], add_val: int = 1) -> int:
+    def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
         """
         Same as `add`, but returns the original value before the addition occurred.
         :param key: item key
@@ -75,7 +75,7 @@ class ExactHeavyHitters(HeavyHitterSketch):
         self.ground_truth[key] = val
         return val
 
-    def return_then_add(self, key: Tuple[int], add_val: int = 1) -> int:
+    def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
         val = self.ground_truth[key]
         self.ground_truth[key] = val + add_val
         return val
@@ -128,7 +128,7 @@ class CountMinSketch(HeavyHitterSketch):
             smallest = val if smallest is None or val < smallest else smallest
         return smallest
 
-    def return_then_add(self, key: Tuple[int], add_val: int = 1) -> int:
+    def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
         # Same as add, but returns the old value before the addition occurred
         self.ground_truth[key] += add_val
         smallest = None
@@ -172,7 +172,7 @@ def test_cms():
         key = (random.randint(0, 100000),)
         add_val = random.randint(0, 5)
         val1 = cms.get(key=key)
-        val2 = cms.return_then_add(key=key, add_val=add_val)
+        val2 = cms.add_after_return(key=key, add_val=add_val)
         val3 = cms.get(key=key)
         if val1 != val2 or val2 + add_val != val3:
             print("CMS `return_then_add` messed up")
