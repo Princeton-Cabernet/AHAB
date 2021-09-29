@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Tuple
 
 import math
 
@@ -16,12 +16,12 @@ def binary_search_for_input(desired_output: int, input_lo: int, input_hi: int,
     :return: The input, between `input_lo` and `input_hi`, that makes `func` produce `desired_output`
     """
     # Find the highest input that gives an output less than or equal to the desired output
-    assert(input_hi > input_lo)
-    assert(func(input_hi) >= desired_output >= func(input_lo))
+    assert (input_hi > input_lo)
+    assert (func(input_hi) >= desired_output >= func(input_lo))
     input_arg = int((input_lo + input_hi) / 2)
     output = func(input_arg)
     while True:
-        #print("Curr: %d, Lo: %d, Hi: %d, Desired: %d, Found: %d"
+        # print("Curr: %d, Lo: %d, Hi: %d, Desired: %d, Found: %d"
         #      % (input_arg, input_lo, input_hi, desired_output, output))
         new_input_arg: int
         if output > desired_output:
@@ -37,7 +37,7 @@ def binary_search_for_input(desired_output: int, input_lo: int, input_hi: int,
             input_lo = input_arg
             new_input_arg = math.ceil((input_arg + input_hi) / 2)
         if input_hi <= input_lo + 1:
-            #print("Pointers converged. Lo: %d, Hi: %d" % (input_lo, input_hi))
+            # print("Pointers converged. Lo: %d, Hi: %d" % (input_lo, input_hi))
             return input_hi
         if new_input_arg == input_arg:
             raise Exception("BUG: binary search got stuck. Lo: %d, Hi: %d, curr: %d, output: %d, desired: %d"
@@ -46,17 +46,26 @@ def binary_search_for_input(desired_output: int, input_lo: int, input_hi: int,
         output = func(input_arg)
 
 
+def correct_threshold(true_flow_sizes: List[int], link_capacity: int) -> int:
+    def bytes_sent_if_threshold_was(candidate_threshold: int) -> int:
+        return sum(min(flow_size, candidate_threshold) for flow_size in true_flow_sizes)
+    return binary_search_for_input(desired_output=link_capacity,
+                                   input_lo=0,
+                                   input_hi=link_capacity,
+                                   func=bytes_sent_if_threshold_was)
+
+
 class CapacityHistograms:
     num_slices: int = 0
     slice_weights: List[float]  # per-slice share fractions of the physical base station link (should add up to 1)
-    slice_demands: List[int]    # how many bytes each slice attempted to send this epoch, including dropped packets
-    physical_capacity: int      # number of bytes the physical base station link can send in one epoch
-    scaled_capacity: int        # capacity scaled up in response to at least one slice not claiming its fair share
+    slice_demands: List[int]  # how many bytes each slice attempted to send this epoch, including dropped packets
+    physical_capacity: int  # number of bytes the physical base station link can send in one epoch
+    scaled_capacity: int  # capacity scaled up in response to at least one slice not claiming its fair share
 
     def __init__(self, slice_weights: List[float], physical_capacity: int):
-        assert(sum(slice_weights) == 1.0)
+        assert (sum(slice_weights) == 1.0)
         for weight in slice_weights:
-            assert(0.0 < weight <= 1.0)
+            assert (0.0 < weight <= 1.0)
         self.slice_weights = slice_weights.copy()
         self.num_slices = len(self.slice_weights)
         self.slice_demands = [0] * self.num_slices
@@ -147,7 +156,7 @@ class ThresholdHistograms(ThresholdEstimator):
         self.candidate_counters = [0] * self.num_candidates
 
     def process_packet(self, packet_size: int, flow_size: int) -> bool:
-        for i in range(self.num_candidates):
+        for i in reversed(range(self.num_candidates)):
             if flow_size < self.candidates[i]:
                 self.candidate_counters[i] += packet_size
             else:
@@ -163,10 +172,10 @@ class ThresholdHistograms(ThresholdEstimator):
         return self.curr_threshold
 
     def end_epoch(self, capacity: int) -> int:
-        winning_threshold = 0
+        winning_threshold: int
         for i in range(self.num_candidates):
             if self.candidate_counters[i] > capacity:
-                winning_threshold = self.candidates[max(0, i-1)]
+                winning_threshold = self.candidates[max(0, i - 1)]
                 break
         else:
             winning_threshold = self.candidates[-1]  # if all candidates are valid, return the largest
@@ -176,8 +185,8 @@ class ThresholdHistograms(ThresholdEstimator):
 
 class ThresholdNewtonMethod(ThresholdHistograms):
 
-    def __init__(self, max_ratio = 2.0):
-        super().__init__(candidate_ratios=[1.0/max_ratio, 1.0, max_ratio])
+    def __init__(self, max_ratio=2.0):
+        super().__init__(candidate_ratios=[1.0 / max_ratio, 1.0, max_ratio])
 
     def end_epoch(self, capacity: int) -> int:
         winning_threshold = -1
@@ -221,8 +230,9 @@ class ThresholdNewtonMethod(ThresholdHistograms):
 def test_binary_search():
     def clipped_doubler(x: int) -> int:
         return min(x * 2, 35)
+
     for lo, hi, desired in [(0, 15, 30), (0, 50, 35), (0, 50, 15), (0, 50, 0), (0, 28, 14)]:
-        correct = min((desired+1) // 2, 18)
+        correct = min((desired + 1) // 2, 18)
         found = binary_search_for_input(desired_output=desired, input_lo=lo, input_hi=hi, func=clipped_doubler)
         if found != correct:
             print("Binary search failed when seeking output %d between inputs %d and %d" % (desired, lo, hi))
@@ -278,30 +288,110 @@ def test_capacity_estimator():
         print("passed.")
 
 
+def threshold_estimation_test(th: ThresholdEstimator, pkts: List[Tuple[int, int]],
+                              starting_threshold: int, expected_ending_threshold: int,
+                              link_capacity: int, test_name: str = "test",
+                              permitted_absolute_error: int = 0):
+    """
+    Check that the threshold estimator chooses the expected next-window threshold given some set of packets
+    :param th: a threshold estimator
+    :param pkts: the packets to feed to the estimator
+    :param starting_threshold: the initial threshold to be applied to flows
+    :param expected_ending_threshold: the new threshold for the next window that the estimator should choose
+    :param link_capacity: how many bytes per window are permitted across all flows
+    :param test_name: name of this test, for printing
+    :param permitted_absolute_error: how much the new threshold can deviate from the expectation
+    :return: None
+    """
+    if starting_threshold != -1:
+        th.set_threshold(starting_threshold)
+    for pkt_size, flow_size in pkts:
+        th.process_packet(packet_size=pkt_size, flow_size=flow_size)
+    th.end_epoch(capacity=link_capacity)
+    end_thresh = th.get_current_threshold()
+    end_lo = expected_ending_threshold - permitted_absolute_error
+    end_hi = expected_ending_threshold + permitted_absolute_error
+    if end_lo <= end_thresh <= end_hi:
+        print(type(th).__name__, "passed %s." % test_name)
+    else:
+        print(type(th).__name__, "FAILED %s: Threshold went from %d to %d instead of %d+-%d"
+              % (test_name, starting_threshold, end_thresh, expected_ending_threshold, permitted_absolute_error))
+
+
 def test_threshold_estimator():
-    th = ThresholdHistograms()
-    th.set_threshold(50)
-    # even distribution, surplus capacity, threshold doubles
-    for _ in range(10):
-        th.process_packet(packet_size=50, flow_size=0)
-    th.end_epoch(capacity=10000)
-    if th.get_current_threshold() != 100:
-        print("Threshold did not double as expected")
-    else:
-        print("Threshold doubled.")
-    # even distribution, insufficient capacity, threshold halves
-    for _ in range(10):
-        th.process_packet(packet_size=50, flow_size=0)
-    th.end_epoch(capacity=50)
-    if th.get_current_threshold() != 50:
-        print("Threshold:", th.get_current_threshold())
-        print("Threshold did not halve")
-    else:
-        print("Threshold halved.")
-    # TODO: more tests
+    for ThresholdClass in [ThresholdHistograms, ThresholdNewtonMethod]:
+        th = ThresholdClass()
+
+        # even distribution, surplus capacity, threshold doubles
+        threshold_estimation_test(th,
+                                  pkts=[(50, 0) for _ in range(10)],
+                                  starting_threshold=50,
+                                  expected_ending_threshold=100,
+                                  link_capacity=10000,
+                                  test_name="Test1")
+
+        # even distribution, insufficient capacity, threshold halves
+        threshold_estimation_test(th,
+                                  pkts=[(50, 0) for _ in range(10)],
+                                  starting_threshold=50,
+                                  expected_ending_threshold=25,
+                                  link_capacity=50,
+                                  test_name="Test2")
+
+        # even distribution, insufficient capacity, threshold decreases by 25%
+        threshold_estimation_test(th,
+                                  pkts=[(1, i) for i in range(100) for _ in range(10)],
+                                  starting_threshold=64,
+                                  expected_ending_threshold=48,
+                                  link_capacity=480,
+                                  test_name="Test3")
+        # TODO: more tests
+        th = None
+
+
+def test_newton_estimator():
+    th = ThresholdNewtonMethod()
+
+    # skewed distribution, insufficient capacity, check that the threshold converges to the correct value
+    pkts = []
+    bytes_sent = 0
+    flow_sizes = []
+    for i in range(0, 41, 2):
+        # flow sizes are [10, 12, 14, 16, ..., 48, 50]
+        flow_size = 10 + i + 1
+        for j in range(flow_size):
+            pkts.append((1, j))
+            bytes_sent += 1
+        flow_sizes.append(flow_size)
+    link_capacity = 480
+    expected_threshold = correct_threshold(flow_sizes, link_capacity)
+    threshold_estimation_test(th,
+                              pkts=pkts,
+                              starting_threshold=40,
+                              expected_ending_threshold=expected_threshold,
+                              link_capacity=link_capacity,
+                              test_name="Convergence Test1",
+                              permitted_absolute_error=2)
+
+    threshold_estimation_test(th,
+                              pkts=pkts,
+                              starting_threshold=-1,  # reuse ending threshold from last test
+                              expected_ending_threshold=expected_threshold,
+                              link_capacity=link_capacity,
+                              test_name="Convergence Test2",
+                              permitted_absolute_error=1)
+
+    threshold_estimation_test(th,
+                              pkts=pkts,
+                              starting_threshold=-1,  # reuse ending threshold from last test
+                              expected_ending_threshold=expected_threshold,
+                              link_capacity=link_capacity,
+                              test_name="Convergence Test3",
+                              permitted_absolute_error=0)
 
 
 if __name__ == "__main__":
     test_binary_search()
     test_capacity_estimator()
     test_threshold_estimator()
+    test_newton_estimator()
