@@ -322,7 +322,8 @@ def test_threshold_estimator():
     for ThresholdClass in [ThresholdHistograms, ThresholdNewtonMethod]:
         th = ThresholdClass()
 
-        # even distribution, surplus capacity, threshold doubles
+        # Even distribution, surplus capacity, threshold far too low
+        # Threshold should double
         threshold_estimation_test(th,
                                   pkts=[(50, 0) for _ in range(10)],
                                   starting_threshold=50,
@@ -330,7 +331,8 @@ def test_threshold_estimator():
                                   link_capacity=10000,
                                   test_name="Test1")
 
-        # even distribution, insufficient capacity, threshold halves
+        # Even distribution, insufficient capacity, threshold far too high
+        # Threshold too high
         threshold_estimation_test(th,
                                   pkts=[(50, 0) for _ in range(10)],
                                   starting_threshold=50,
@@ -338,13 +340,23 @@ def test_threshold_estimator():
                                   link_capacity=50,
                                   test_name="Test2")
 
-        # even distribution, insufficient capacity, threshold decreases by 25%
+        # Even distribution, insufficient capacity, threshold slightly too high
+        # Threshold should decrease by 25%
         threshold_estimation_test(th,
                                   pkts=[(1, i) for i in range(100) for _ in range(10)],
                                   starting_threshold=64,
                                   expected_ending_threshold=48,
                                   link_capacity=480,
                                   test_name="Test3")
+
+        # Even distribution, surplus capacity, threshold slightly too low
+        # Threshold should increase by 50%
+        threshold_estimation_test(th,
+                                  pkts=[(1, i) for i in range(128) for _ in range(10)],
+                                  starting_threshold=64,
+                                  expected_ending_threshold=96,
+                                  link_capacity=960,
+                                  test_name="Test4")
         # TODO: more tests
         th = None
 
@@ -352,7 +364,8 @@ def test_threshold_estimator():
 def test_newton_estimator():
     th = ThresholdNewtonMethod()
 
-    # skewed distribution, insufficient capacity, check that the threshold converges to the correct value
+    # Skewed distribution, insufficient capacity, threshold slightly too high
+    # Check that the threshold converges to the correct value
     pkts = []
     bytes_sent = 0
     flow_sizes = []
