@@ -5,6 +5,8 @@ from typing import Tuple, Dict, List, Callable, Optional
 
 from hashing import make_crc16_func, CRC16_DEFAULT_POLY
 
+from statistics import median
+
 
 class HeavyHitterSketch(ABC):
     @abstractmethod
@@ -80,6 +82,65 @@ class ExactHeavyHitters(HeavyHitterSketch):
         val = self.ground_truth[key]
         self.ground_truth[key] = val + add_val
         return val
+
+
+class CountSketch(HeavyHitterSketch):
+    arrays: List[List[int]]
+    height: int
+    width: int
+    salts: List[int]
+    index_hash_funcs: List[Callable[..., int]]
+    sign_hash_funcs: List[Callable[..., int]]
+    ground_truth: Dict[Tuple[int], int]
+
+    def __init__(self, width: int = 3, height: int = 65536):
+        self.width = width
+        self.height = height
+        self.arrays = [[0] * self.height for _ in range(self.width)]
+        self.index_hash_funcs = [make_crc16_func(polynomial=CRC16_DEFAULT_POLY
+                                                 + (0x100 * i)) for i in range(width)]
+        self.sign_hash_funcs = [make_crc16_func(polynomial=CRC16_DEFAULT_POLY
+                                                + (0x100 * (i + width))) for i in range(width)]
+
+    def clear(self):
+        self.arrays = [[0] * self.height for _ in range(self.width)]
+
+    def set(self, key: Tuple[int], set_val: int = 1) -> int:
+        # Doesn't make sense for count sketch
+        return NotImplemented
+
+    def get_all(self, key: Tuple[int]) -> Tuple[int]:
+        """
+        Return one value from each array for the given item key, instead of just the median.
+        :param key: item key
+        :return: all values that the item key hashed to
+        """
+        return tuple(array[index] for array, index in zip(self.arrays, self.indices(key)))
+
+    def get(self, key: Tuple[int]) -> int:
+        return abs(median(self.get_all(key)))
+
+    def add(self, key: Tuple[int], add_val: int = 1) -> int:
+        vals = []
+        for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
+            val = array[index] + add_val * sign
+            array[index] = val
+            vals.append(val)
+        return abs(median(vals))
+
+    def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
+        vals = []
+        for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
+            val = array[index]
+            array[index] = val + add_val * sign
+            vals.append(val)
+        return abs(median(vals))
+
+    def indices(self, key: Tuple[int]) -> Tuple[int]:
+        return tuple(hash_func(*key) % self.height for hash_func in self.index_hash_funcs)
+
+    def signs(self, key: Tuple[int]) -> Tuple[int]:
+        return tuple((hash_func(*key) % 2) * 2 - 1 for hash_func in self.sign_hash_funcs)
 
 
 class CountMinSketch(HeavyHitterSketch):
@@ -222,5 +283,30 @@ def test_cms():
     print("CMS didn't mess up")
 
 
+def test_cs():
+    cs = CountSketch()
+    ground_truth: Dict[Tuple[int], int] = defaultdict(int)
+    for i in range(10000):
+        key = (random.randint(0, 10000) * 20,)
+        add_val = add_val=random.randint(1, 5)
+        ground_truth[key] += add_val
+        cs_val = cs.add(key=key, add_val=add_val)
+        true_val = ground_truth[key]
+
+    errors = []
+    for key, true_val in ground_truth.items():
+        cs_val = cs.get(key)
+        error = abs(cs_val - true_val) / true_val
+        errors.append(error)
+    errors.sort()
+    num_errs = len(errors)
+    err50 = errors[int(num_errs * 0.5)]
+    err90 = errors[int(num_errs * 0.9)]
+    err95 = errors[int(num_errs * 0.95)]
+    err99 = errors[int(num_errs * 0.99)]
+    print("CountSketch error quantiles: 50%%: %.2f, 90%%: %.2f, 95%%: %.2f, 99%%: %.2f" % (err50, err90, err95, err99))
+
+
 if __name__ == "__main__":
     test_cms()
+    test_cs()
