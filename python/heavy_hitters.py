@@ -116,28 +116,28 @@ class CountSketch(HeavyHitterSketch):
         :param key: item key
         :return: all values that the item key hashed to
         """
-        return tuple(array[index] for array, index in zip(self.arrays, self.indices(key)))
+        return tuple(array[index] * sign for array, index, sign in zip(self.arrays, self.indices(key), self.signs(key)))
 
     def get(self, key: Tuple[int]) -> int:
-        return abs(median(self.get_all(key)))
+        return median(self.get_all(key))
 
     def add(self, key: Tuple[int], add_val: int = 1) -> int:
         self.ground_truth[key] += add_val
         vals = []
         for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
-            val = array[index] + add_val * sign
-            array[index] = val
+            array[index] += add_val * sign
+            val = sign * array[index]
             vals.append(val)
-        return abs(median(vals))
+        return median(vals)
 
     def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
         self.ground_truth[key] += add_val
         vals = []
         for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
-            val = array[index]
-            array[index] = val + add_val * sign
+            val = array[index] * sign
+            array[index] += add_val * sign
             vals.append(val)
-        return abs(median(vals))
+        return median(vals)
 
     def indices(self, key: Tuple[int]) -> Tuple[int]:
         return tuple(hash_func(*key) % self.height for hash_func in self.index_hash_funcs)
