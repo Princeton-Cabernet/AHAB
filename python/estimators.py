@@ -332,7 +332,7 @@ def test_threshold_estimator():
                                   test_name="Test1")
 
         # Even distribution, insufficient capacity, threshold far too high
-        # Threshold too high
+        # Threshold should halve
         threshold_estimation_test(th,
                                   pkts=[(50, 0) for _ in range(10)],
                                   starting_threshold=50,

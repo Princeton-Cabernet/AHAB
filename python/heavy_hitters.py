@@ -88,7 +88,6 @@ class CountSketch(HeavyHitterSketch):
     arrays: List[List[int]]
     height: int
     width: int
-    salts: List[int]
     index_hash_funcs: List[Callable[..., int]]
     sign_hash_funcs: List[Callable[..., int]]
     ground_truth: Dict[Tuple[int], int]
@@ -101,9 +100,11 @@ class CountSketch(HeavyHitterSketch):
                                                  + (0x100 * i)) for i in range(width)]
         self.sign_hash_funcs = [make_crc16_func(polynomial=CRC16_DEFAULT_POLY
                                                 + (0x100 * (i + width))) for i in range(width)]
+        self.ground_truth = defaultdict(int)
 
     def clear(self):
         self.arrays = [[0] * self.height for _ in range(self.width)]
+        self.ground_truth = defaultdict(int)
 
     def set(self, key: Tuple[int], set_val: int = 1) -> int:
         # Doesn't make sense for count sketch
@@ -121,6 +122,7 @@ class CountSketch(HeavyHitterSketch):
         return abs(median(self.get_all(key)))
 
     def add(self, key: Tuple[int], add_val: int = 1) -> int:
+        self.ground_truth[key] += add_val
         vals = []
         for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
             val = array[index] + add_val * sign
@@ -129,6 +131,7 @@ class CountSketch(HeavyHitterSketch):
         return abs(median(vals))
 
     def add_after_return(self, key: Tuple[int], add_val: int = 1) -> int:
+        self.ground_truth[key] += add_val
         vals = []
         for index, sign, array in zip(self.indices(key), self.signs(key), self.arrays):
             val = array[index]
@@ -273,7 +276,7 @@ def test_cms():
     cms = CountMinSketch()
     for i in range(10000):
         key = (random.randint(0, 100000),)
-        add_val = random.randint(0, 5)
+        add_val = random.randint(1, 5)
         val1 = cms.get(key=key)
         val2 = cms.add_after_return(key=key, add_val=add_val)
         val3 = cms.get(key=key)
@@ -286,8 +289,8 @@ def test_cms():
 def test_cs():
     cs = CountSketch()
     ground_truth: Dict[Tuple[int], int] = defaultdict(int)
-    for i in range(10000):
-        key = (random.randint(0, 10000) * 20,)
+    for i in range(100000):
+        key = (random.randint(0, 100000) * 20,)
         add_val = add_val=random.randint(1, 5)
         ground_truth[key] += add_val
         cs_val = cs.add(key=key, add_val=add_val)
