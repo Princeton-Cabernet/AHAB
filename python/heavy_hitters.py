@@ -4,8 +4,11 @@ from collections import defaultdict
 from typing import Tuple, Dict, List, Callable, Optional
 
 from hashing import make_crc16_func, CRC16_DEFAULT_POLY
+import numpy as np
 
 from statistics import median
+
+SEED = 0x12345678
 
 
 class HeavyHitterSketch(ABC):
@@ -286,16 +289,26 @@ def test_cms():
     print("CMS didn't mess up")
 
 
-def compare_accuracy():
+def compare_accuracy(zipfian=True, zipf_exponent=1.2):
     cs = CountSketch()
     cms = CountMinSketch()
     ground_truth: Dict[Tuple[int], int] = defaultdict(int)
 
     # random keys and random updates
-    random.seed(0x12345678)
-    for i in range(100000):
-        key = (random.randint(0, 100000) * 20,)
-        add_val = random.randint(1, 5)
+
+    random.seed(SEED)
+    rng = np.random.default_rng(SEED)
+    num_packets = 100000
+    packet_ids: List[int]
+    if zipfian:
+        print("%d zipfian packets" % num_packets)
+        packet_ids = [int(num) for num in rng.zipf(a=zipf_exponent, size=num_packets)]
+    else:
+        print("%d uniform packets" % num_packets)
+        packet_ids = [random.randint(0, 100000) for _ in range(num_packets)]
+    for packet_id in packet_ids:
+        key = (packet_id * 23,)  # scale the packetIDs to spread them out a little
+        add_val = random.randint(20, 100)
         ground_truth[key] += add_val
         cs.add(key=key, add_val=add_val)
         cms.add(key=key, add_val=add_val)
