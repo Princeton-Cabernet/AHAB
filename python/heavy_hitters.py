@@ -286,30 +286,37 @@ def test_cms():
     print("CMS didn't mess up")
 
 
-def test_cs():
+def compare_accuracy():
     cs = CountSketch()
+    cms = CountMinSketch()
     ground_truth: Dict[Tuple[int], int] = defaultdict(int)
+
+    # random keys and random updates
+    random.seed(0x12345678)
     for i in range(100000):
         key = (random.randint(0, 100000) * 20,)
-        add_val = add_val=random.randint(1, 5)
+        add_val = random.randint(1, 5)
         ground_truth[key] += add_val
-        cs_val = cs.add(key=key, add_val=add_val)
-        true_val = ground_truth[key]
+        cs.add(key=key, add_val=add_val)
+        cms.add(key=key, add_val=add_val)
 
-    errors = []
-    for key, true_val in ground_truth.items():
-        cs_val = cs.get(key)
-        error = abs(cs_val - true_val) / true_val
-        errors.append(error)
-    errors.sort()
-    num_errs = len(errors)
-    err50 = errors[int(num_errs * 0.5)]
-    err90 = errors[int(num_errs * 0.9)]
-    err95 = errors[int(num_errs * 0.95)]
-    err99 = errors[int(num_errs * 0.99)]
-    print("CountSketch error quantiles: 50%%: %.2f, 90%%: %.2f, 95%%: %.2f, 99%%: %.2f" % (err50, err90, err95, err99))
+    for struct in [cs, cms]:
+        # compute the relative error for each key seen
+        errors = []
+        for key, true_val in ground_truth.items():
+            approx_val = struct.get(key)
+            error = abs(approx_val - true_val) / true_val
+            errors.append(error)
+        errors.sort()
+
+        # print relative error quantiles
+        print("%14s error quantiles --" % type(struct).__name__, end=" ")
+        for quantile in [0.5, 0.9, 0.95, 0.99]:
+            quant_err = errors[int(len(errors) * quantile)]
+            print("\t%d%%: %.2f%%," % (int(quantile * 100), quant_err * 100), end=" ")
+        print("")
 
 
 if __name__ == "__main__":
     test_cms()
-    test_cs()
+    compare_accuracy()
