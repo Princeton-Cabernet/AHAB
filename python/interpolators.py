@@ -53,33 +53,37 @@ class TofinoThresholdInterpolator(ThresholdInterpolator):
     def lookup_table_size(self):
         return len(self.ratio_lookup)
 
+    def add_lookup_table_entry(self, i: int, j: int):
+        # i and j will be rounded versions of more precise numbers.
+        # To unbias the rounding error, we offset i and j slightly before computing their ratio
+        ratio = (i + self.lookup_rounding_unbias) / (j + self.lookup_rounding_unbias)
+        exp: int
+        mantissa: int
+        if ratio < self.MIN_LOOKUP_ENTRY:
+            exp = 0
+            mantissa = 0
+        else:
+            exp = math.floor(math.log(ratio, 2)) - self.mantissa_bits + 1
+            mantissa = round(ratio * 2**(-exp))
+        self.ratio_lookup[(i, j)] = (mantissa, exp)
+
     def populate_lookup_table(self):
         for j in range(1 << (self.ratio_bits - 1), 1 << self.ratio_bits):
             for i in range(j+1):
-                # i and j will be rounded versions of more precise numbers.
-                # To unbias the rounding error, we offset i and j slightly before computing their ratio
-                ratio = (i + self.lookup_rounding_unbias) / (j + self.lookup_rounding_unbias)
-                exp: int
-                mantissa: int
-                if ratio < self.MIN_LOOKUP_ENTRY:
-                    exp = 0
-                    mantissa = 0
-                else:
-                    exp = math.floor(math.log(ratio, 2)) - self.mantissa_bits + 1
-                    mantissa = round(ratio * 2**(-exp))
-                self.ratio_lookup[(i, j)] = (mantissa, exp)
+                self.add_lookup_table_entry(i, j)
 
     def interpolate(self, t1: int, t2: int, c1: int, c2: int, c: int) -> int:
-        assert c2 > c1
-        assert t2 > t1
+        assert (c1 < c < c2 and t1 < t2) or (c1 > c > c2 and t1 > t2)
+        flipped: bool = c1 > c2
+        sign: int = -1 if flipped else 1
 
         # For this approach, T2 - T1 should always be a power of 2
-        delta_t = t2 - t1
+        delta_t = abs(t2 - t1)
         assert bin(delta_t).count('1') == 1
         delta_t_exp = int(math.log(delta_t, 2))
 
-        numerator = c - c1
-        denominator = c2 - c1
+        numerator = (c - c1) * sign
+        denominator = (c2 - c1) * sign
 
         # round the numerator and denominator for using as keys to the lookup table
         shift = denominator.bit_length() - self.ratio_bits
@@ -89,8 +93,8 @@ class TofinoThresholdInterpolator(ThresholdInterpolator):
         ratio_mantissa, ratio_exp = self.ratio_lookup[(num_shifted, den_shifted)]
         output_shift = ratio_exp + delta_t_exp
         if output_shift > 0:
-            return t1 + (ratio_mantissa << output_shift)
-        return t1 + (ratio_mantissa >> -output_shift)
+            return t1 + (ratio_mantissa << output_shift) * sign
+        return t1 + (ratio_mantissa >> -output_shift) * sign
 
 
 def print_quantiles(vals: List[float]):
@@ -104,9 +108,9 @@ def print_quantiles(vals: List[float]):
     print("")
 
 
-def plot_update_errors():
-    ratio_bits = 7
-    mantissa_bits = 8
+def plot_update_errors(flipped: bool):
+    ratio_bits = 8
+    mantissa_bits = 16
     unbias = 0.5
     stepper = TofinoThresholdInterpolator(ratio_bits=ratio_bits,
                                           mantissa_bits=mantissa_bits,
@@ -124,10 +128,18 @@ def plot_update_errors():
     ax.set_xlabel("(C - C1) / (C2 - C1)")
     ax.yaxis.grid(color='gray', linestyle='dashed')
 
-    for (c1, c2) in [(20000, 40000), (100000, 600000)]:
-        for (t1, t2) in [(2048, 4096), (128, 256)]:
+    jump1 = 2048
+    jump2 = 256
+    capacity_pairs = [(20000, 40000), (100000, 600000)]
+    threshold_pairs = [(2048, 2048 + jump1), (128, 128 + jump2)]
+    if flipped:
+        capacity_pairs = [(c2, c1) for (c1, c2) in capacity_pairs]
+        threshold_pairs = [(t2, t1) for (t1, t2) in threshold_pairs]
+
+    for (c1, c2) in capacity_pairs:
+        for (t1, t2) in threshold_pairs:
             errors = []
-            capacities = list(range(c1+1, c2))
+            capacities = list(range(min(c1, c2)+1, max(c1, c2)))
             for c in capacities:
                 correct_t = int(t1 + ((c - c1) / (c2 - c1)) * (t2 - t1))
                 lookup_t = stepper.interpolate(t1, t2, c1, c2, c)
@@ -142,4 +154,4 @@ def plot_update_errors():
 
 
 if __name__ == "__main__":
-    plot_update_errors()
+    plot_update_errors(flipped=True)

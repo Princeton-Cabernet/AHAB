@@ -12,7 +12,7 @@ from statistics import median
 
 SEED = 0x12345678
 
-FlowId = Tuple[int, int]
+FlowId = Tuple[int, ...]
 
 
 class HeavyHitterSketch(ABC):

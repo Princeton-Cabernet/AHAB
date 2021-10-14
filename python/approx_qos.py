@@ -13,7 +13,7 @@ from statistics import mean
 SEED = 0x123456
 random.seed(SEED)  # for reproducible tests
 
-FlowId = Tuple[int, int]
+FlowId = Tuple[int, ...]
 
 
 @dataclass
@@ -67,11 +67,13 @@ class SliceEpochRecord:
 class QosHistory:
     # Outer list indexed by epochID, inner lists indexed by sliceID
     history: List[List[SliceEpochRecord]]
+    slice_weights: List[float]
     num_slices: int
     num_epochs: int
 
-    def __init__(self, num_slices):
-        self.num_slices = num_slices
+    def __init__(self, slice_weights: List[float]):
+        self.slice_weights = slice_weights.copy()
+        self.num_slices = len(slice_weights)
         self.history = list()
         self.num_epochs = 0
 
@@ -83,19 +85,22 @@ class QosHistory:
         self.history.append(epoch_record)
         self.num_epochs += 1
 
-    def fairness_l1_history_for(self, slice_id: int):
+    def records_for(self, slice_id: int) -> List[SliceEpochRecord]:
+        return [record[slice_id] for record in self.history]
+
+    def fairness_l1_history_for(self, slice_id: int) -> List[float]:
         return [record[slice_id].fairness_l1() for record in self.history]
 
-    def fairness_l2_history_for(self, slice_id: int):
+    def fairness_l2_history_for(self, slice_id: int) -> List[float]:
         return [record[slice_id].fairness_l2() for record in self.history]
 
-    def fairness_linf_history_for(self, slice_id: int):
+    def fairness_linf_history_for(self, slice_id: int) -> List[float]:
         return [record[slice_id].fairness_linf() for record in self.history]
 
-    def fairness_mean_history_for(self, slice_id: int):
+    def fairness_mean_history_for(self, slice_id: int) -> List[float]:
         return [record[slice_id].fairness_mean() for record in self.history]
 
-    def threshold_error_for(self, slice_id: int):
+    def threshold_error_for(self, slice_id: int) -> List[float]:
         return [(record[slice_id].threshold_chosen - record[slice_id].threshold_ideal)
                 / record[slice_id].threshold_ideal
                 for record in self.history]
@@ -136,8 +141,8 @@ class ApproxQos:
         else:
             self.capacity_estimator = CapacityHistograms(self.slice_weights, base_station_capacity)
         for slice_id, estimator in enumerate(self.threshold_estimators):
-            # Initial threshold for each slice is the maximum
-            estimator.set_threshold(self.capacity_estimator.capacity_for(slice_id))
+            # Initial threshold for each slice is capacity divided by 4. Its arbitrary
+            estimator.set_threshold(int(self.capacity_estimator.capacity_for(slice_id) / 6))
 
         heaviest_weight = max(self.slice_weights)
         # there is no rounding error here if every weight is a power of 2, as will be the case in tofino
@@ -179,7 +184,7 @@ class ApproxQosWithSavedStats(ApproxQos):
     history: QosHistory
 
     def __post_init__(self):
-        self.history = QosHistory(num_slices=self.num_slices)
+        self.history = QosHistory(slice_weights=self.slice_weights)
         self.relative_flow_size_drop_rate_pairs = []
         self.clear_per_epoch_structs()
 

@@ -208,8 +208,9 @@ def create_power_two_jump_candidates(threshold: int) -> List[int]:
     :return:
     """
     assert(threshold > 0)
-    jump_distance = 1 << (round(math.log(threshold, 2.0)) - 1)
-    return [max(threshold - jump_distance, 1), threshold, threshold + jump_distance]
+    increase_distance = 1 << (round(math.log(threshold, 2.0)) - 2)  # threshold can increase to ~1.25x
+    decrease_distance = 1 << (round(math.log(threshold, 2.0)) - 1)  # threshold can decrease to ~0.5x
+    return [max(threshold - decrease_distance, 1), threshold, threshold + increase_distance]
 
 
 def create_relative_candidates(ratios: List[float], threshold: int):
