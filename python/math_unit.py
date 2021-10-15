@@ -1,9 +1,12 @@
 import random
+
+import math
 from math import sqrt, ceil, floor, fabs
-from typing import List, Callable
+from typing import List, Callable, Dict, Tuple
 
 import matplotlib.pyplot as plt
 
+# Math unit constants
 SIGNIFICAND_BITS = 4
 LOOKUP_TABLE_LEN = 2 ** SIGNIFICAND_BITS  # number of entries in a math unit lookup table
 LOOKUP_TABLE_ENTRY_WIDTH = 8  # size of a lookup table entry
@@ -27,7 +30,7 @@ class MathUnit:
         :param lookup_table: A table containing 16 values for all possible 4-bit significands
         :param exponent_shift: How much the math unit should shift the input's exponent
         :param exponent_invert: Should the input's exponent be negated (as in exp becomes -exp)
-        :param output_scale: The scale of the lookup table contents. Lookup table values will be multiplied by 2**scale
+        :param output_scale: The scale of lookup table entries. Lookup table values will be multiplied by 2**scale
         """
         if exponent_shift > REG_CELL_WIDTH or exponent_shift < -REG_CELL_WIDTH:
             raise Exception("Exponent shift should be within (-%d,%d)" % (REG_CELL_WIDTH, REG_CELL_WIDTH))
@@ -85,8 +88,6 @@ class SquareMathUnit(MathUnit):
                                              exponent_invert=False,
                                              output_scale=-6,
                                              **kwargs)
-
-
 
 
 class SqrtMathUnit(MathUnit):
@@ -175,7 +176,7 @@ def plot_relative_error(inputs: List[int], true_func: Callable[[int], float], fu
 
 
 def plot_multunit_error():
-    #mult_factor = 15 / 16
+    # mult_factor = 15 / 16
     mult_factor = 11
     units = [ConstMultMathUnit(mult_factor=mult_factor, name="MultUnit")]
     # ConstMultMathUnit(mult_factor=mult_factor, lookup_input_shift=0.0, name="MultUnit-NoShift")]
@@ -229,6 +230,17 @@ def main5():
         errors.append("%.2f%%" % (ewma.current_error() * 100))
     print("Latency measurements:", vals)
     print("EWMA errors:", errors)
+
+
+def plot_lookup_mult_error():
+    table = ApproxMultiplicationTable(num_significant_bits=5)
+    #mult_factor = 15 / 16
+    mult_factor = 11
+    units = [ConstMultMathUnit(mult_factor=mult_factor, name="MultUnit")]
+    # ConstMultMathUnit(mult_factor=mult_factor, lookup_input_shift=0.0, name="MultUnit-NoShift")]
+
+    plot_relative_error(list(range(10, 65536)), lambda x: x * mult_factor,
+                        "f(x) = x * %.3f" % mult_factor, units)
 
 
 if __name__ == "__main__":

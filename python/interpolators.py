@@ -74,7 +74,7 @@ class TofinoThresholdInterpolator(ThresholdInterpolator):
 
     def interpolate(self, t1: int, t2: int, c1: int, c2: int, c: int) -> int:
         assert (c1 < c < c2 and t1 < t2) or (c1 > c > c2 and t1 > t2)
-        flipped: bool = c1 > c2
+        flipped: bool = t1 > t2
         sign: int = -1 if flipped else 1
 
         # For this approach, T2 - T1 should always be a power of 2
@@ -93,8 +93,8 @@ class TofinoThresholdInterpolator(ThresholdInterpolator):
         ratio_mantissa, ratio_exp = self.ratio_lookup[(num_shifted, den_shifted)]
         output_shift = ratio_exp + delta_t_exp
         if output_shift > 0:
-            return t1 + (ratio_mantissa << output_shift) * sign
-        return t1 + (ratio_mantissa >> -output_shift) * sign
+            return t1 + ((ratio_mantissa << output_shift) * sign)
+        return t1 + ((ratio_mantissa >> -output_shift) * sign)
 
 
 def print_quantiles(vals: List[float]):
