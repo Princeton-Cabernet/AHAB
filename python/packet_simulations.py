@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 
 from approx_qos import QosHistory, ApproxQosWithSavedStats
-from heavy_hitters import ExactHeavyHitters, CountSketch, CountMinSketch
-
+from heavy_hitters import ExactHeavyHitters, CountSketch, CountMinSketch, HeavyHitterSketch
 
 from plots import plot_thresholds, plot_threshold_error, plot_slice_loads, plot_slice_flow_counts, \
     plot_history_fairness, plot_drop_rate_scatter
@@ -52,7 +51,7 @@ def experiment_unstable_slice_demands(num_epochs: int,
                                       max_change_per_epoch: float,
                                       subscription_factor: float,
                                       max_variance: float,
-                                      sketch_class: Type,
+                                      sketch_class: Type[HeavyHitterSketch],
                                       fixed_capacities: bool):
     zipf_exponent = 1.2
     rng = np.random.default_rng(SEED)

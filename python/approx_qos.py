@@ -33,7 +33,7 @@ class SliceEpochRecord:
 
         self.flow_drops_ideal = [max(flow_size - self.threshold_ideal, 0) for flow_size in self.flow_sizes]
 
-    def drop_rates_per_relative_flow_size(self) -> dict[float, float]:
+    def drop_rates_per_relative_flow_size(self) -> Dict[float, float]:
         result = {}
         for flow_index in range(len(self.flow_sizes)):
             relative_flow_size = self.flow_sizes[flow_index] / self.threshold_ideal
@@ -122,7 +122,7 @@ class ApproxQos:
     def __init__(self, slice_weights: List[float],
                  base_station_capacity: int,
                  hh_instance: Optional[HeavyHitterSketch] = None,
-                 threshold_estimator_class: Type = ThresholdNewtonMethodTofino,
+                 threshold_estimator_class: Type[ThresholdEstimator] = ThresholdNewtonMethodTofino,
                  fixed_capacities: bool = False):
         self.num_slices = len(slice_weights)
         self.slice_weights = slice_weights.copy()
