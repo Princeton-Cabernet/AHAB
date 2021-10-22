@@ -121,7 +121,7 @@ def plot_drop_rate_scatter(ax: Axes, slice_colors: List[str],
                 points.append((relative_flow_size, drop_rate))
         ax.scatter([x for x, y in points], [y for x, y in points], alpha=0.3,
                    color=slice_colors[slice_id])
-    reference_x = np.linspace(0.1, largest_x_point, num=100)
-    reference_y = [max(x - 1, 0) / x for x in reference_x]
+    reference_x = np.linspace(0.1, max(largest_x_point, 2.0), num=100)
+    reference_y = [max(x - 1, 0) / max(x, 0.1) for x in reference_x]
     ax.plot(reference_x, reference_y, label="Ideal drop rate", color="black", linewidth=1.0)
     ax.legend()
