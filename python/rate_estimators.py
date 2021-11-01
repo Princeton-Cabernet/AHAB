@@ -13,14 +13,18 @@ FlowId = Tuple[int, ...]
 SEED = 0x12345678
 
 
-def compute_sample_lpf(prev_val: int, new_val: int, prev_timestamp: int, new_timestamp: int, time_constant: int) -> int:
-    exponent = -(new_timestamp - prev_timestamp) / time_constant
-    return int(prev_val + (new_val - prev_val) * (1 - math.pow(math.e, exponent)))
+def compute_sample_lpf(prev_lpf_val: int, curr_sample: int,
+                       prev_timestamp: int, curr_timestamp: int, time_constant: int) -> int:
+    """ Based upon tofino LPF sample mode documentation """
+    exponent = -(curr_timestamp - prev_timestamp) / time_constant
+    return int(prev_lpf_val + (curr_sample - prev_lpf_val) * (1 - math.pow(math.e, exponent)))
 
 
-def compute_rate_lpf(prev_val: int, new_val: int, prev_timestamp: int, new_timestamp: int, time_constant: int) -> int:
-    exponent = (prev_timestamp - new_timestamp) / time_constant
-    return int(new_val + (prev_val * math.pow(math.e, exponent)))
+def compute_rate_lpf(prev_lpf_val: int, curr_sample: int,
+                     prev_timestamp: int, curr_timestamp: int, time_constant: int) -> int:
+    """ Based upon tofino LPF rate mode documentation """
+    exponent = -(curr_timestamp - prev_timestamp) / time_constant
+    return int(curr_sample + prev_lpf_val * math.pow(math.e, exponent))
 
 
 class LpfRegister(ABC):
@@ -34,6 +38,7 @@ class LpfRegister(ABC):
 
 
 class LpfExactRegister(LpfRegister):
+    # Each LPF cell consists of two values: the timestamp of the last sample, and the current LPF value
     timestamps: Dict[FlowId, int]
     values: Dict[FlowId, int]
     time_constant: int
@@ -49,27 +54,28 @@ class LpfExactRegister(LpfRegister):
         new_val = compute_rate_lpf(self.values[key], value, self.timestamps[key], timestamp, self.time_constant)
         self.timestamps[key] = timestamp
         self.values[key] = new_val
-        if self.scale_down_factor > 0:
-            return new_val >> self.scale_down_factor
-        return new_val
+        return new_val >> self.scale_down_factor
 
     def get(self, key: FlowId) -> int:
-        return self.values[key]
+        return self.values[key] >> self.scale_down_factor
 
 
 class LpfHashedRegister(LpfRegister):
+    # Each LPF cell consists of two values: the timestamp of the last sample, and the current LPF value
     timestamps: List[int]
     values: List[int]
     hash_func: Callable[..., int]
     height: int
     time_constant: int
+    scale_down_factor: int
 
-    def __init__(self, time_constant: int, height: int, hash_func: Callable[..., int]):
+    def __init__(self, time_constant: int, height: int, hash_func: Callable[..., int], scale_down_factor: int = 0):
         self.timestamps = [0] * height
         self.values = [0] * height
         self.hash_func = hash_func
         self.height = height
         self.time_constant = time_constant
+        self.scale_down_factor = scale_down_factor
 
     def __index_of(self, key: FlowId):
         return self.hash_func(*key) % self.height
@@ -79,13 +85,16 @@ class LpfHashedRegister(LpfRegister):
         new_val = compute_rate_lpf(self.values[index], value, self.timestamps[index], timestamp, self.time_constant)
         self.timestamps[index] = timestamp
         self.values[index] = new_val
-        return new_val
+        return new_val >> self.scale_down_factor
 
     def get(self, key: FlowId):
-        return self.values[self.__index_of(key)]
+        return self.values[self.__index_of(key)] >> self.scale_down_factor
 
 
 class LpfMinSketch(LpfRegister):
+    """
+    Count-min sketch with LPFs instead of counters
+    """
     width: int
     height: int
     registers: List[LpfRegister]
