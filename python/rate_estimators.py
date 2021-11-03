@@ -5,12 +5,14 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from hashing import make_crc16_func, CRC16_DEFAULT_POLY
-from typing import List, Callable, Tuple, Dict
+from typing import List, Callable, Tuple, Dict, Union
 import math
 import random
 
-FlowId = Tuple[int, ...]
-Packet = Tuple[int, int, FlowId]  # (timestamp_us, packet_len, flow_id)
+Timestamp = Union[int, np.uint64]
+PacketSize = Union[int, np.uint64]
+FlowId = Union[Tuple[int, ...], np.uint64]
+Packet = Tuple[Timestamp, PacketSize, FlowId]  # (timestamp_us, packet_len, flow_id)
 SEED = 0x12345678
 
 
@@ -79,7 +81,9 @@ class LpfHashedRegister(LpfRegister):
         self.scale_down_factor = scale_down_factor
 
     def __index_of(self, key: FlowId):
-        return self.hash_func(*key) % self.height
+        if isinstance(key, tuple):
+            return self.hash_func(*key) % self.height
+        return self.hash_func(key) % self.height
 
     def update(self, key: FlowId, timestamp: int, value: int):
         index = self.__index_of(key)
@@ -172,7 +176,9 @@ def plot_zipf_accuracy():
     rng = np.random.default_rng(SEED)
 
     # Inflate the packet-IDs to spread them out more
-    packets = [(i, pkt_size, (int(pkt_id) * 521, int(pkt_id), int(pkt_id) * 91))
+    packets = [(i,  # timestamp
+                pkt_size,  # packet size
+                (int(pkt_id) * 521, int(pkt_id), int(pkt_id) * 91))  # flow ID
                for i, pkt_id in enumerate(rng.zipf(a=zipf_exponent, size=num_pkts))]
 
     results = get_approx_pairs(packets=packets,
@@ -191,11 +197,13 @@ def plot_uniform_accuracy():
     time_constant = 5
     lms_width = 3
     lms_height = 512
-    pkt_size = 100
     num_flows = 10000
     num_pkts = 1000000
 
-    packets = [(i, random.randint(20, 200), (random.randint(0, num_flows) * 91,)) for i in range(num_pkts)]
+    packets = [(i,  # timestamp
+                random.randint(20, 200),  # packet size
+                (random.randint(0, num_flows) * 91,))  # flow ID
+               for i in range(num_pkts)]
 
     results = get_approx_pairs(packets=packets,
                                lms_width=lms_width,
