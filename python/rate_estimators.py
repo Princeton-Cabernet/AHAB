@@ -5,14 +5,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from hashing import make_crc16_func, CRC16_DEFAULT_POLY
-from typing import List, Callable, Tuple, Dict, Union
+from typing import List, Callable, Tuple, Dict
 import math
 import random
 
-Timestamp = Union[int, np.uint64]
-PacketSize = Union[int, np.uint64]
-FlowId = Union[Tuple[int, ...], np.uint64]
-Packet = Tuple[Timestamp, PacketSize, FlowId]  # (timestamp_us, packet_len, flow_id)
+FlowId = Tuple[int, ...]
+Packet = Tuple[int, int, FlowId]  # (timestamp_us, packet_len, flow_id)
 SEED = 0x12345678
 
 
@@ -81,9 +79,7 @@ class LpfHashedRegister(LpfRegister):
         self.scale_down_factor = scale_down_factor
 
     def __index_of(self, key: FlowId):
-        if isinstance(key, tuple):
-            return self.hash_func(*key) % self.height
-        return self.hash_func(key) % self.height
+        return self.hash_func(*key) % self.height
 
     def update(self, key: FlowId, timestamp: int, value: int):
         index = self.__index_of(key)
