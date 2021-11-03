@@ -10,6 +10,7 @@ import math
 import random
 
 FlowId = Tuple[int, ...]
+Packet = Tuple[int, int, FlowId]  # (timestamp_us, packet_len, flow_id)
 SEED = 0x12345678
 
 
@@ -99,7 +100,7 @@ class LpfMinSketch(LpfRegister):
     height: int
     registers: List[LpfRegister]
 
-    def __init__(self, time_constant: int, width: int = 3, height: int = 65536):
+    def __init__(self, time_constant: int, width: int, height: int):
         self.width = width
         self.height = height
 
@@ -135,67 +136,77 @@ def plot_rate_convergence():
     plt.show()
 
 
-def plot_zipf_accuracy():
-    time_constant = 5
-    lms = LpfMinSketch(time_constant, height=500)
-    lpf = LpfExactRegister(time_constant)
+def get_approx_pairs(packets: List[Packet],
+                     lms_width: int, lms_height: int, time_constant: int) -> List[Tuple[int, int]]:
+    lms = LpfMinSketch(time_constant=time_constant, width=lms_width, height=lms_height)
+    lpf = LpfExactRegister(time_constant=time_constant)
 
-    num_pkts = 1000000
-    zipf_exponent = 1.2
-    rng = np.random.default_rng(SEED)
-    # Inflate the packet-IDs to spread them out more
-    packets = [(int(pkt_id) * 521, int(pkt_id), int(pkt_id) * 91)
-               for pkt_id in rng.zipf(a=zipf_exponent, size=num_pkts)]
-    pkt_size = 100
     result_pairs: List[Tuple[int, int]] = []
-    for i, pkt in enumerate(packets):
-        timestamp = i
-        lms_val = lms.update(pkt, timestamp, pkt_size)
-        lpf_val = lpf.update(pkt, timestamp, pkt_size)
+    for timestamp, pkt_size, flow_id in packets:
+        lms_val = lms.update(flow_id, timestamp, pkt_size)
+        lpf_val = lpf.update(flow_id, timestamp, pkt_size)
         result_pairs.append((lpf_val, lms_val))
 
-    x_vals = [x for x, y in result_pairs]
-    y_vals = [y for x, y in result_pairs]
+    return result_pairs
+
+
+def plot_approx_pairs(pairs: List[Tuple[int, int]], title: str):
+    x_vals = [x for x, y in pairs]
+    y_vals = [y for x, y in pairs]
 
     fig, ax = plt.subplots(1)
     ax.scatter(x_vals, y_vals, alpha=0.3)
     ax.set_xlabel("LPF Ground Truth Value")
     ax.set_ylabel("LPF-Min-Sketch Value")
-    ax.set_title("Accuracy of a \"LPF-Min-Sketch\" with %d rows and %d cols\n"
-                 "%d packets generated from zipfian distribution with exponent %.1f"
-                 % (lms.height, lms.width, num_pkts, zipf_exponent))
+    ax.set_title(title)
     plt.show()
+
+
+def plot_zipf_accuracy():
+    time_constant = 5
+    lms_width = 3
+    lms_height = 512
+    pkt_size = 100
+    num_pkts = 1000000
+    zipf_exponent = 1.2
+    rng = np.random.default_rng(SEED)
+
+    # Inflate the packet-IDs to spread them out more
+    packets = [(i, pkt_size, (int(pkt_id) * 521, int(pkt_id), int(pkt_id) * 91))
+               for i, pkt_id in enumerate(rng.zipf(a=zipf_exponent, size=num_pkts))]
+
+    results = get_approx_pairs(packets=packets,
+                               lms_width=lms_width,
+                               lms_height=lms_height,
+                               time_constant=time_constant)
+
+    title = "Accuracy of a \"LPF-Min-Sketch\" with %d rows and %d cols\n " \
+            "%d packets generated from zipfian distribution with exponent %.1f" \
+            % (lms_height, lms_width, num_pkts, zipf_exponent)
+
+    plot_approx_pairs(results, title)
 
 
 def plot_uniform_accuracy():
     time_constant = 5
-    lms = LpfMinSketch(time_constant, height=5000)
-    lpf = LpfExactRegister(time_constant)
-
+    lms_width = 3
+    lms_height = 512
+    pkt_size = 100
     num_flows = 10000
     num_pkts = 1000000
-    zipf_exponent = 1.2
-    rng = np.random.default_rng(SEED)
-    packets = [(random.randint(0, num_flows) * 91,) for _ in range(num_pkts)]
-    pkt_size = random.randint(20, 200)
-    result_pairs: List[Tuple[int, int]] = []
-    for i, pkt in enumerate(packets):
-        timestamp = i
-        lms_val = lms.update(pkt, timestamp, pkt_size)
-        lpf_val = lpf.update(pkt, timestamp, pkt_size)
-        result_pairs.append((lpf_val, lms_val))
 
-    x_vals = [x for x, y in result_pairs]
-    y_vals = [y for x, y in result_pairs]
+    packets = [(i, random.randint(20, 200), (random.randint(0, num_flows) * 91,)) for i in range(num_pkts)]
 
-    fig, ax = plt.subplots(1)
-    ax.scatter(x_vals, y_vals, alpha=0.3)
-    ax.set_xlabel("LPF Ground Truth Value")
-    ax.set_ylabel("LPF-Min-Sketch Value")
-    ax.set_title("Accuracy of a \"LPF-Min-Sketch\" with %d rows and %d cols\n"
-                 "%d packets uniformly generated from %d possible flows"
-                 % (lms.height, lms.width, num_pkts, num_flows))
-    plt.show()
+    results = get_approx_pairs(packets=packets,
+                               lms_width=lms_width,
+                               lms_height=lms_height,
+                               time_constant=time_constant)
+
+    title = "Accuracy of a \"LPF-Min-Sketch\" with %d rows and %d cols\n "\
+            "%d packets uniformly generated from %d possible flows" \
+            % (lms_height, lms_width, num_pkts, num_flows)
+
+    plot_approx_pairs(results, title)
 
 
 if __name__ == "__main__":
