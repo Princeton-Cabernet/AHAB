@@ -2,7 +2,6 @@ import random
 from collections import defaultdict
 from typing import List, Tuple, Type
 
-import numpy
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
