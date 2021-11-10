@@ -3,24 +3,14 @@
 #include <core.p4>
 #include <tna.p4>
 
-#define NUM_VLINKS 1024
-#define CMS_HEIGHT 2048
-
 #include "headers.h"
 #include "metadata.h"
 #include "parsers.h"
+#include "define.h"
 
-typedef bit<16> cms_index_t;
-typedef bit<32> bytecount_t;
-#define bytecount_t_width 32
-typedef bit<8> epoch_t;
-typedef bit<16> vlink_index_t;
-// maximum per-slice bytes sent per-window. Should be base station bandwidth * window duration
-const bytecount_t FIXED_VLINK_CAPACITY = 65000;
-
-#include "vlink_find.p4"
-#include "become_worker.p4"
-#include "perflow_rate.p4"
+#include "vlink_lookup.p4"
+#include "rate_estimator.p4"
+#include "rate_enforcer.p4"
 #include "threshold_memory.p4"
 #include "histogram_interpolate.p4"
 
@@ -30,6 +20,17 @@ We should begin choosing a new candidate as soon as the window jumps.
 To detect the jump, we'll need a register that stores "last epoch updated" per-vlink.
 The window
 */
+
+/*
+Tofino-Approximate fair dropping:
+- Load slice threshold, scale-up packet length:
+- Approximate flow rate using a decaying CMS
+- Set drop flag with probability 1 - min(1, T/Rate)
+- Feed non-dropped packets into a rate-measuring LPF
+- Adjust threshold based upon LPF output, using EWMA recurrence from AFD paper
+*/
+
+
 
 control SwitchIngress(
         inout header_t hdr,
