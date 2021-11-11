@@ -1,10 +1,8 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control VLink_Find(in header_t hdr, out vlink_index_t vlink_index, out bytecount_t scaled_weight){
-    // Load vlink ID - stage1
-    // Load threshold - stage2
+control VLink_Find(in header_t hdr, inout afd_metadata_t afd_md){
+    // Load vlink ID + threshold - stage1
     // Load threshold delta exponent - stage2
-    // Compute threshold_lo and threshold_hi from exponent lookup table - stage3
 
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_fair_rates;
     RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(stored_fair_rates) read_stored_fair_rate = {
@@ -19,49 +17,49 @@ control VLink_Find(in header_t hdr, out vlink_index_t vlink_index, out bytecount
     }
 
 	action set_vlink_rshift2(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len >> 2);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 2);
 	}
 	action set_vlink_rshift1(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len >> 1);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 1);
 	}
 	action set_vlink_noshift(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) hdr.ipv4.total_len;
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
 	}
 	action set_vlink_lshift1(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 1);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 1);
 	}
 	action set_vlink_lshift2(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 2);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 2);
 	}
 	action set_vlink_lshift3(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 3);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 3);
 	}
 	action set_vlink_lshift4(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 4);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 4);
 	}
 	action set_vlink_lshift5(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 5);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 5);
 	}
 	action set_vlink_lshift6(vlink_index_t i){
-		vlink_index=i;
+		afd_md.bridged.vlink_id=i;
         afd_md.bridged.fair_rate = read_stored_fair_rate.execute(i);
-		scaled_weight=(bytecount_t) (hdr.ipv4.total_len << 6);
+		afd_md.bridged.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 6);
 	}
     action overwrite_threshold() {
         write_stored_fair_rate.execute(afd_md.recird.vlink_id);
@@ -69,7 +67,7 @@ control VLink_Find(in header_t hdr, out vlink_index_t vlink_index, out bytecount
 	table tb_match_ip{
 		key = {
             hdr.ipv4.dst_addr: lpm;
-            afd_recirc_header.isValid() : exact;
+            afd_recirc_header.isValid() : exact; // TODO: this header name is a placeholder
         }
 		actions = {
 			set_vlink_rshift2;
@@ -155,5 +153,6 @@ control VLink_Find(in header_t hdr, out vlink_index_t vlink_index, out bytecount
 
 	apply {
 		tb_match_ip.apply();
+        compute_candidates.apply();
 	}
 }
