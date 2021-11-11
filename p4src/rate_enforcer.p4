@@ -319,16 +319,22 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
             afd_md.measured_rate: ternary;
         }
 		actions = {
+            // TODO
             rshift_8;
             rshift_4;
             rshift_2;
             rshift_0;
         }
 		default_action = rshift_0();
+        const entries = {
+            // TODO
+        }
 	}
     /* --------------------------------------------------------------------------------------
      * Lookup tables that map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
-     * for j* in {j, j_lo, j_hi}
+     *  for j* in {j, j_lo, j_hi}.
+     * We only care when i > j*, otherwise the drop rate is 0. Don't have lookup table entries
+     *  for i < j*
      * -------------------------------------------------------------------------------------- */
     // Grab true drop probability
     action load_drop_prob_act(drop_prob_t prob) {
