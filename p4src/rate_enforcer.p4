@@ -373,7 +373,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
 		default_action=load_drop_prob_hi_act(0);
 	}
 
-	apply{
+	apply {
         // Approximate rates as narrower integers for use in the lookup tables
         shift_measured_rate.apply();
         // Lookup tables for true and simulated drop probabilities.

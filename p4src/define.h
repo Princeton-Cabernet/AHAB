@@ -10,6 +10,6 @@ typedef bit<8> epoch_t;
 typedef bit<16> vlink_index_t;
 
 
-// maximum per-slice bytes sent per-window. Should be base station bandwidth * window duration
-const bytecount_t FIXED_VLINK_CAPACITY = 65000;
+// Desired scaled bytes per second for each vlink (scaled bytes is bytes divided by vlink weight)
+const bytecount_t DESIRED_VLINK_RATE = 65000;
 
