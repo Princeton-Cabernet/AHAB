@@ -30,7 +30,7 @@ typedef bit<5> div_lookup_key_t;
 
 // private control block, not called outside this file
 control InterpolateFairRate(in bytecount_t numerator, in bytecount_t denominator, in bytecount_t t_mid
-                            in exponent_t delta_t_log, in bytecount_t c_desired, out bytecount_t t_new, in InterpolationOp interp_op) {
+                            in exponent_t delta_t_log, out bytecount_t t_new, in InterpolationOp interp_op) {
     // Calculates t_new = t_mid +- ( numerator / denominator ) * delta_t  // ( + if interp_right, - if interp_left)
 
     div_lookup_key_t shifted_numerator;    // always <= denominator
@@ -129,7 +129,7 @@ control InterpolateFairRate(in bytecount_t numerator, in bytecount_t denominator
 
 
 // Main for this file
-control FairRateInterpolation(inout afd_metadata_t afd_md) {
+control ThresholdInterpolator(inout afd_metadata_t afd_md) {
 
     // current_rate_lpf is the true transmitted bitrate
     // lo_ and hi_ are bitrates achieved by simulating lower and higher drop rates
@@ -157,7 +157,7 @@ control FairRateInterpolation(inout afd_metadata_t afd_md) {
                 time_to_work = 1w0;
             } else {
                 time_to_work = 1w1;
-                stored_epoch = afd_md.bridged.epoch;
+                stored_epoch = afd_md.epoch;
             }
         }
     };
@@ -175,15 +175,15 @@ control FairRateInterpolation(inout afd_metadata_t afd_md) {
     }
     action choose_middle_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.recircd.new_fair_rate = afd_md.bridged.fair_rate;
+        afd_md.new_threshold = afd_md.threshold;
     }
     action choose_low_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.recircd.new_fair_rate = afd_md.bridged.fair_rate_lo;
+        afd_md.new_threshold = afd_md.threshold_lo;
     }
     action choose_high_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.recircd.new_fair_rate = afd_md.bridged.fair_rate_hi;
+        afd_md.new_threshold = afd_md.threshold_hi;
     }
 
     
@@ -221,46 +221,61 @@ control FairRateInterpolation(inout afd_metadata_t afd_md) {
         default_action = choose_middle_candidate();  // Something went wrong, stick with the current fair rate threshold
     }
 
-
-    // Offset will be the largest power of 2 that is smaller than new_fair_rate/2
-    // So the new lo and hi fair rates will be roughly +- 50%
-    action set_new_fair_rate_candidates(bytecount_t offset) {
-        afd_md.recird.new_fair_rate_lo = afd_md.recird.new_fair_rate - offset;
-        afd_md.recird.new_fair_rate_hi = afd_md.recird.new_fair_rate + offset;
+    
+    Register<bytecount_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
+    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(winning_thresholds) grab_new_threshold_regact = {
+        void apply(inout bytecount_t stored, out bytecount_t retval) {
+            retval = stored;
+        }
+    };
+    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(winning_thresholds) dump_new_threshold_regact = {
+        void apply(inout bytecount_t stored) {
+            stored = afd_md.new_threshold;
+        }
+    };
+    action grab_new_threshold() {
+        new_threshold = grab_new_threshold_regact.execute(afd_md.vlink_id);
     }
-    table get_new_fair_rate_candidates {
+    action dump_new_threshold() {
+        dump_new_threshold_regact.execute(afd_md.vlink_id);
+    }
+    table dump_or_grab_new_threshold {
         key = {
-            afd_md.recird.new_fair_rate : ternary;
+            afd_md.is_worker;
         }
         actions = {
-            set_new_fair_rate_candidates;
+            dump_new_threshold;
+            grab_new_threshold;
         }
-    }
+        const entries = {
+            0 : dump_new_threshold();
+            1 : grab_new_threshold();
+        }
 
     InterpolateFairRate() interpolate;
-
     apply {
-        // Get the slice's current rate, and the simulated rates based upon fair_rate_lo and fair_rate_hi
-        vlink_rate = current_rate_lpf.execute(afd_md.bridged.scaled_pkt_len, afd_md.bridged.vlink_id);
-        vlink_rate_lo = lo_rate_lpf.execute(afd_md.bridged.lo_bytes_to_send, afd_md.bridged.vlink_id);
-        vlink_rate_hi = hi_rate_lpf.execute(afd_md.bridged.hi_bytes_to_send, afd_md.bridged.vlink_id);
+        if (!afd_md.is_worker) {
+            // Get the slice's current rate, and the simulated rates based upon threshold_lo and threshold_hi
+            vlink_rate = current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
+            vlink_rate_lo = lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
+            vlink_rate_hi = hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
 
-        drate = vlink_rate - DESIRED_VLINK_RATE;
-        drate_lo = vlink_rate_lo - DESIRED_VLINK_RATE;
-        drate_hi = vlink_rate_hi - DEESIRED_VLINK_RATE;
-        
-        // Check if it is time to do some work
-        afd_md.is_worker = choose_to_work.execute(afd_md.bridged.vlink_id);
-        // If it is time, interpolate the new fair rate threshold
-        choose_interpolation_action.apply();
-        if (interp_op != InterpolationOp.NONE) {
-            interpolate.apply(interp_numerator, interp_denominator, );
-        } 
+            drate = vlink_rate - DESIRED_VLINK_RATE;
+            drate_lo = vlink_rate_lo - DESIRED_VLINK_RATE;
+            drate_hi = vlink_rate_hi - DEESIRED_VLINK_RATE;
+            
+            // Check if it is time to do some work
+            afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
+            // If it is time, interpolate the new fair rate threshold
+            choose_interpolation_action.apply();
+            if (interp_op != InterpolationOp.NONE) {
+                interpolate.apply(interp_numerator, interp_denominator, afd_md.threshold,
+                                  afd_md.candidate_delta_pow, afd_md.new_threshold, interp_op); 
+            } 
+        }
 
-        // Compute new fair_rate_lo and fair_rate_hi
-        get_new_fair_rate_candidates.apply();
-        // Recirculate the new fair rate and the lo/hi candidates to all the ingress pipelines
+        dump_or_grab_new_threshold.apply();
         // (maybe save recirculation logic for main.p4?)
-
+        // Recirculate the new fair rate threshold and the lo/hi candidates to all the ingress pipelines
     }
 }

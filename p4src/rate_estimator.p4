@@ -1,15 +1,12 @@
-#include <core.p4>
-#include <tna.p4>
+// Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-#include "include/headers.p4"
-#include "include/util.p4"
-
-#define CMS_HEIGHT 65536
-
-control DecayingCountMinSketch(in  flow_bytecount_t sketch_input,
-                     out flow_bytecount_t sketch_output,
-                     in header_t hdr,
-                     in ig_metadata_t ig_md) {
+control RateEstimator(in bit<32> src_ip,
+                      in bit<32> dst_ip,
+                      in bit<8> proto,
+                      in bit<16> src_port,
+                      in bit<16> dst_port,
+                      in  flow_bytecount_t sketch_input,
+                      out flow_bytecount_t sketch_output) {
 
     Lpf<flow_bytecount_t, cms_index_t>(size=CMS_HEIGHT) lpf_1;
     Lpf<flow_bytecount_t, cms_index_t>(size=CMS_HEIGHT) lpf_2;
@@ -32,21 +29,26 @@ control DecayingCountMinSketch(in  flow_bytecount_t sketch_input,
 
     apply {
         // Get CMS indices
-        index1 = hash1.get({ hdr.ipv4.proto,
-                             hdr.ipv4.sip,
-                             hdr.ipv4.dip,
-                             ig_md.sport,
-                             ig_md.dport });
-        index2 = hash2.get({ hdr.ipv4.proto,
-                             hdr.ipv4.sip,
-                             hdr.ipv4.dip,
-                             ig_md.sport,
-                             ig_md.dport });
-        index3 = hash3.get({ hdr.ipv4.proto,
-                             hdr.ipv4.sip,
-                             hdr.ipv4.dip,
-                             ig_md.sport,
-                             ig_md.dport });
+        index1 = hash1.get({ src_ip,
+                             dst_ip,
+                             proto,
+                             src_port,
+                             dst_port});
+        index2 = hash2.get({ src_ip,
+                             3w0,
+                             dst_ip,
+                             3w0,
+                             proto,
+                             src_port,
+                             dst_port});
+        index3 = hash3.get({ src_ip,
+                             dst_ip,
+                             2w0,
+                             proto,
+                             2w0
+                             src_port,
+                             1w0
+                             dst_port});
 
         // Get register contents
         cms_output_1 = lpf_1.execute(sketch_input, index1);

@@ -50,23 +50,30 @@ parser SwitchIngressParser(
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
             IP_PROTOCOLS_UDP : parse_udp;
-            default : accept;
+            default : parse_unknown_l4;
         }
     }
 
     state parse_tcp {
         pkt.extract(hdr.tcp);
-        transition select(hdr.ipv4.total_len) {
-            default : accept;
-        }
+        ig_md.sport = hdr.tcp.src_port;
+        ig_md.dport = hdr.tcp.dst_port;
+        transition accept;
     }
 
     state parse_udp {
         pkt.extract(hdr.udp);
-        transition select(hdr.udp.dst_port) {
-            default: accept;
-        }
+        ig_md.sport = hdr.udp.src_port;
+        ig_md.dport = hdr.udp.dst_port;
+        transition accept;
     }
+
+    state parse_unknown_l4 {
+        ig_md.sport = 0;
+        ig_md.dport = 0;
+        transition accept;
+    }
+
 }
 
 control SwitchIngressDeparser(

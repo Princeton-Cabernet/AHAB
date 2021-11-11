@@ -1,35 +1,35 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 #include "define.h"
 
-typedef bit<5> shifted_rate_t;
-typedef bit<8> drop_prob_t;
+typedef bit<5> shifted_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
+typedef bit<8> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,256]
 struct drop_prob_pair_t {
     drop_prob_t hi;
     drop_prob_t lo;
 }
 
-control ProbabilisticDrop(inout afd_metadata_t afd_md,
-                          inout bool drop_flag) {
+control RateEnforcer(inout afd_metadata_t afd_md,
+                     inout bit<1> drop_flag) {
     /* This control block sets the drop flag with probability 1 - min(1, enforced_rate / measured_rate).
         Steps:
-        - Approximate measured_rate, fair_rate_lo, fair_rate, and fair_rate_hi as i, j_lo, j, j_hi
+        - Approximate measured_rate, threshold_lo, threshold, and threshold_hi as i, j_lo, j, j_hi
         - Three lookup tables map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
         - Compare lookup table output to an RNG value. If rng < val, mark to drop.
     */
 
     Random<drop_prob_t>() rng;
     drop_prob_t rng_output;
-    drop_prob_t drop_probability;     // set by lookup table to 1 - min(1, fair_rate / measured_rate)
-    drop_prob_t drop_probability_lo;  // set by lookup table to 1 - min(1, fair_rate_lo / measured_rate)
-    drop_prob_t drop_probability_hi;  // set by lookup table to 1 - min(1, fair_rate_hi / measured_rate)
+    drop_prob_t drop_probability;     // set by lookup table to 1 - min(1, threshold / measured_rate)
+    drop_prob_t drop_probability_lo;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
+    drop_prob_t drop_probability_hi;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
 
     shifted_rate_t measured_rate_shifted;
-    shifted_rate_t fair_rate_lo_shifted;
-    shifted_rate_t fair_rate_shifted;
-    shifted_rate_t fair_rate_hi_shifted;
+    shifted_rate_t threshold_lo_shifted;
+    shifted_rate_t threshold_shifted;
+    shifted_rate_t threshold_hi_shifted;
 
-    bool drop_flag_lo;
-    bool drop_flag_hi;
+    bit<1> drop_flag_lo;
+    bit<1> drop_flag_hi;
 
     Register<bit<1>, bit<1>>(1) flipflop_reg;
     RegisterAction<bit<1>, bit<1>, bit<1>>(flipflop_reg) get_flipflop = {
@@ -52,10 +52,10 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.lo = rng_output
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.lo = rng_output
             }
         }
@@ -64,17 +64,17 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.hi = rng_output
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.hi = rng_output
             }
         }
     };
 
     /* --------------------------------------------------------------------------------------
-     *  Pretend to probabilistically drop using fair_rate_lo as the current fair rate threshold
+     *  Pretend to probabilistically drop using threshold_lo as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     Register<drop_prob_pair_t, bit<1>>(1) drop_flag_lo_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
@@ -103,7 +103,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
     };
 
     /* --------------------------------------------------------------------------------------
-     *  Pretend to probabilistically drop using fair_rate_hi as the current fair rate threshold
+     *  Pretend to probabilistically drop using threshold_hi as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     Register<drop_prob_pair_t, bit<1>>(1) drop_flag_hi_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
@@ -210,7 +210,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
     }
 
     /* --------------------------------------------------------------------------------------
-     * If this packet is going to actually be dropped, but fair_rate_lo or fair_rate_hi wouldn't have dropped it,
+     * If this packet is going to actually be dropped, but threshold_lo or threshold_hi wouldn't have dropped it,
      * add the bytes of this packet to a per-slice byte store. The next non-dropped packet will pick up the bytes
      * and carry them to the egress rate estimators.
      * -------------------------------------------------------------------------------------- */
@@ -228,10 +228,10 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
         }
     };
     action grab_lo_bytes() {
-        afd_md.bridged.lo_bytes_to_send = grab_lo_bytes_regact.execute(afd_md.bridged.vlink_id);
+        afd_md.bytes_sent_lo = grab_lo_bytes_regact.execute(afd_md.vlink_id);
     }
     action dump_lo_bytes() {
-        dump_lo_bytes_regact.execute(afd_md.bridged.vlink_id);
+        dump_lo_bytes_regact.execute(afd_md.vlink_id);
     }
     table dump_or_grab_lo_bytes {
         key = {
@@ -248,25 +248,26 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
             (0, 1) : grab_lo_bytes();
             // (1,1) : no_action();
         }
+        size = 4;
     }
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_hi;
     RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_hi) grab_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
-            bytes_sent = dumped_bytes + pkt_len;
+            bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
             dumped_bytes = 0;
         }
     };
     RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_hi) dump_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
-            dumped_bytes = dumped_bytes + pkt_len;
+            dumped_bytes = dumped_bytes + afd_md.scaled_pkt_len;
             bytes_sent = 0;
         }
     };
     action grab_hi_bytes() {
-        afd_md.bridged.hi_bytes_to_send = grab_hi_bytes_regact.execute(afd_md.bridged.vlink_id);
+        afd_md.bytes_sent_hi = grab_hi_bytes_regact.execute(afd_md.vlink_id);
     }
     action dump_hi_bytes() {
-        dump_hi_bytes_regact.execute(afd_md.bridged.vlink_id);
+        dump_hi_bytes_regact.execute(afd_md.vlink_id);
     }
     table dump_or_grab_hi_bytes {
         key = {
@@ -283,6 +284,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
             (0, 1) : grab_hi_bytes();
             // (1,1) : no_action();
         }
+        size = 4;
     }
 
 
@@ -291,27 +293,27 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
      * -------------------------------------------------------------------------------------- */
     // TODO: rshift action for every value in [0, 24]
 	action rshift_8() {
-        fair_rate_lo_shifted  = (shifted_rate_t) afd_md.fair_rate_lo  >> 8;
-        fair_rate_shifted     = (shifted_rate_t) afd_md.fair_rate     >> 8;
-        fair_rate_hi_shifted  = (shifted_rate_t) afd_md.fair_rate_hi  >> 8;
+        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 8;
+        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 8;
+        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 8;
         measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 8;
 	}
 	action rshift_4() {
-        fair_rate_lo_shifted  = (shifted_rate_t) afd_md.fair_rate_lo  >> 4;
-        fair_rate_shifted     = (shifted_rate_t) afd_md.fair_rate     >> 4;
-        fair_rate_hi_shifted  = (shifted_rate_t) afd_md.fair_rate_hi  >> 4;
+        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 4;
+        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 4;
+        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 4;
         measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 4;
 	}
 	action rshift_2() {
-        fair_rate_lo_shifted  = (shifted_rate_t) afd_md.fair_rate_lo  >> 2;
-        fair_rate_shifted     = (shifted_rate_t) afd_md.fair_rate     >> 2;
-        fair_rate_hi_shifted  = (shifted_rate_t) afd_md.fair_rate_hi  >> 2;
+        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 2;
+        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 2;
+        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 2;
         measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 2;
 	}
 	action rshift_0() {
-        fair_rate_lo_shifted  = (shifted_rate_t) afd_md.fair_rate_lo;
-        fair_rate_shifted     = (shifted_rate_t) afd_md.fair_rate;
-        fair_rate_hi_shifted  = (shifted_rate_t) afd_md.fair_rate_hi;
+        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo;
+        threshold_shifted     = (shifted_rate_t) afd_md.threshold;
+        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi;
         measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate;
 	}
 	table shift_measured_rate {
@@ -342,7 +344,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
     }
 	table load_drop_prob {
 		key = {
-            fair_rate_shifted : exact;
+            threshold_shifted : exact;
             measured_rate_shifted: exact;
 		}
 		actions = {
@@ -356,7 +358,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
     }
 	table load_drop_prob_lo {
 		key = {
-            fair_rate_lo_shifted : exact;
+            threshold_lo_shifted : exact;
             measured_rate_shifted: exact;
 		}
 		actions = {
@@ -370,7 +372,7 @@ control ProbabilisticDrop(inout afd_metadata_t afd_md,
     }
 	table load_drop_prob_hi {
 		key = {
-            fair_rate_hi_shifted : exact;
+            threshold_hi_shifted : exact;
             measured_rate_shifted: exact;
 		}
 		actions = {

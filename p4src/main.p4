@@ -11,8 +11,7 @@
 #include "vlink_lookup.p4"
 #include "rate_estimator.p4"
 #include "rate_enforcer.p4"
-#include "threshold_memory.p4"
-#include "histogram_interpolate.p4"
+#include "threshold_interpolator.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -40,62 +39,30 @@ control SwitchIngress(
         inout ingress_intrinsic_metadata_for_deparser_t ig_dprsr_md,
         inout ingress_intrinsic_metadata_for_tm_t ig_tm_md) {
 
-    VLink_Find() vlink_find;
-    Become_Worker_Check() become_worker_check;
-    PerFlow_Rate_Estimator() perflow_rate_estimator;
-    Threshld_Memory() threshold_memory;
-
-    Get_Neighbouring_Slice() get_neighbouring_slice;
-    Histogram_Three_Slice() histogram_this_vlink;
+    VLinkLookup() vlink_lookup;
+    RateEstimator() rate_estimator;
+    RateEnforcer() rate_enforcer;
 
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
 
         // this is regular workflow, not considering recirculation for now
-
-        vlink_index_t vlink_index;
-        bytecount_t scaled_weight;
-        vlink_find.apply(hdr,vlink_index,scaled_weight);
-
-        bool become_worker;
-        become_worker_check.apply(vlink_index, epoch, become_worker);
-
-        bit<32> flowID = hdr.ipv4.dst_addr;
-        bytecount_t perflow_rate;
-        perflow_rate_estimator.apply(flowID, epoch, scaled_weight, perflow_rate);
-
-        bytecount_t this_epoch_threshold;
-        threshold_memory.apply(vlink_index, false, this_epoch_threshold);//read into per_flow_threshold
-
-        bytecount_t low_slice_thres;
-        bytecount_t high_slice_thres;
-        bit<8> log_offset;
-        get_neighbouring_slice.apply(this_epoch_threshold,low_slice_thres,high_slice_thres,log_offset);
-
-
-        bytecount_t new_C=65000;
-        bytecount_t new_T;
-        if(become_worker){
-            //interpolate the new threshold!
-             //first get the new capacity for this VLink.
-              //for now use constant new_C.
-              //new_C=65000;
-        }else{
-            //new_C=0;//doesn't matter in this branch
-        }
-
-        histogram_this_vlink.apply(vlink_index, perflow_rate, scaled_weight,
-                this_epoch_threshold,low_slice_thres,high_slice_thres,log_offset, //mid,low,high,
-                become_worker,//is_readout,
-                new_C,
-                new_T);
-        
-        if(become_worker){
-            // TODO: recirculate to put new_T into memory
-        }
-        
+        vlink_lookup.apply(hdr, ig_md.afd);
+        rate_estimator.apply(hdr.ipv4.src,
+                             hdr.ipv4.dst,
+                             hdr.ipv4.proto,
+                             ig_md.sport,
+                             ig_md.dport,
+                             ig_md.afd.scaled_pkt_len,
+                             ig_md.afd.measured_rate);
+        bit<1> afd_drop_flag
+        rate_enforcer.apply(ig_md.afd, afd_drop_flag);
+        if (afd_drop_flag == 1) {
+            // TODO: send to low-priority queue instead of outright dropping
+            ig_dprsr_md.drop_ctl = 1;
     }
+    // TODO: bridge afd metadata
 }
 
 
@@ -107,11 +74,14 @@ control SwitchEgress(
         inout egress_intrinsic_metadata_for_deparser_t eg_dprsr_md,
         inout egress_intrinsic_metadata_for_output_port_t eg_oport_md) {
 
+    ThresholdInterpolator() threshold_interpolator;
 
     apply {
-        // Load vlink capacity
-        // Update candidate counters and/or choose a winning candidate threshold
-        // Dump winning candidate threshold into mirrored+recirculated packet
+        // Choose a new threshold
+        threshold_interpolator.apply(eg_md.afd);
+        if (eg_md.afd.is_worker == 1) {
+            // TODO: recirculate afd_md.threshold_new back to ingress
+        }
     }
 }
 
