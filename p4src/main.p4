@@ -49,20 +49,21 @@ control SwitchIngress(
 
         // this is regular workflow, not considering recirculation for now
         vlink_lookup.apply(hdr, ig_md.afd);
-        rate_estimator.apply(hdr.ipv4.src,
-                             hdr.ipv4.dst,
-                             hdr.ipv4.proto,
+        rate_estimator.apply(hdr.ipv4.src_addr,
+                             hdr.ipv4.dst_addr,
+                             hdr.ipv4.protocol,
                              ig_md.sport,
                              ig_md.dport,
                              ig_md.afd.scaled_pkt_len,
                              ig_md.afd.measured_rate);
-        bit<1> afd_drop_flag
+        bit<1> afd_drop_flag;
         rate_enforcer.apply(ig_md.afd, afd_drop_flag);
         if (afd_drop_flag == 1) {
             // TODO: send to low-priority queue instead of outright dropping
             ig_dprsr_md.drop_ctl = 1;
     }
     // TODO: bridge afd metadata
+}
 }
 
 
@@ -80,7 +81,7 @@ control SwitchEgress(
         // Choose a new threshold
         threshold_interpolator.apply(eg_md.afd);
         if (eg_md.afd.is_worker == 1) {
-            // TODO: recirculate afd_md.threshold_new back to ingress
+            // TODO: recirculate afd_md.new_threshold back to ingress
         }
     }
 }

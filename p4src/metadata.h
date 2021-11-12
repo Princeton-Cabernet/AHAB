@@ -2,6 +2,7 @@
 
 #include "define.h"
 
+@pa_auto_init_metadata
 struct afd_metadata_t {
     epoch_t                 epoch;
     vlink_index_t           vlink_id;
@@ -16,7 +17,7 @@ struct afd_metadata_t {
     bytecount_t             bytes_sent_lo;
     bytecount_t             bytes_sent_hi;
 
-    bytecount_t             threshold_new;
+    bytecount_t             new_threshold;
     bit<1>                  is_worker;
 }
 
@@ -28,4 +29,5 @@ struct ig_metadata_t {
     bit<16> dport;
 }
 struct eg_metadata_t {
+    afd_metadata_t afd;
 }

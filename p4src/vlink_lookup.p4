@@ -1,73 +1,83 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md){
+control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     // Load vlink ID + threshold - stage1
     // Load threshold delta exponent - stage2
+bytecount_t threshold_delta_plus = 0;
+bytecount_t threshold_delta_minus = 0;
 
-    Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_fair_rates;
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(stored_fair_rates) read_stored_fair_rate = {
-        void apply(inout bytecount_t stored_fair_rate, out bytecount_t retval) {
-            retval = stored_fair_rate;
+    Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) read_stored_threshold = {
+        void apply(inout bytecount_t stored_threshold, out bytecount_t retval) {
+            retval = stored_threshold;
         }
-    }
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(stored_fair_rates) write_stored_fair_rate = {
-        void apply(inout bytecount_t stored_fair_rate, out bytecount_t retval) {
-            stored_fair_rate = afd_md.new_threshold;
+    };
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) write_stored_threshold = {
+        void apply(inout bytecount_t stored_threshold, out bytecount_t retval) {
+            stored_threshold = afd_md.new_threshold;
         }
-    }
+    };
+action read_stored_threshold_act() {
+        afd_md.threshold = read_stored_threshold.execute(afd_md.vlink_id);
+}
+action write_stored_threshold_act() {
+        write_stored_threshold.execute(afd_md.vlink_id);
+}
 
+table read_or_write_threshold {
+key = {
+afd_md.is_worker: exact;
+}
+actions = {
+read_stored_threshold_act;
+write_stored_threshold_act;
+}
+const entries = {
+0: read_stored_threshold_act();
+1: write_stored_threshold_act();
+}
+size = 2;
+}
 	action set_vlink_rshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 2);
 	}
 	action set_vlink_rshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 1);
 	}
-	action set_vlink_noshift(vlink_index_t i){
-		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
+	action set_vlink_noshift(vlink_index_t i) {
+		afd_md.vlink_id = i;
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
 	}
 	action set_vlink_lshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 1);
 	}
 	action set_vlink_lshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 2);
 	}
 	action set_vlink_lshift3(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 3);
 	}
 	action set_vlink_lshift4(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 4);
 	}
 	action set_vlink_lshift5(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 5);
 	}
 	action set_vlink_lshift6(vlink_index_t i){
 		afd_md.vlink_id=i;
-        afd_md.threshold = read_stored_fair_rate.execute(i);
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 6);
 	}
-    action overwrite_threshold() {
-        write_stored_fair_rate.execute(afd_md.recird.vlink_id);
-    }
 	table tb_match_ip{
 		key = {
             hdr.ipv4.dst_addr: lpm;
-            afd_recirc_header.isValid() : exact; // TODO: this header name is a placeholder
+            afd_md.is_worker : exact; // TODO: set the is_worker flag on recirculation
         }
 		actions = {
 			set_vlink_rshift2;
@@ -79,9 +89,8 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md){
 			set_vlink_lshift4;
 			set_vlink_lshift5;
 			set_vlink_lshift6;
-            overwrite_threshold;
 		}
-		default_action = set_vlink_default();
+		default_action = set_vlink_noshift(0);
 		size = 1024;
 	}
 
@@ -92,21 +101,21 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md){
         // At the low boundary, the low candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-        afd_md.threshold_lo        = afd_md.threeshold;
-        afd_md.threshold_hi        = afd_md.threshold + candidate_delta;
+	threshold_delta_minus = 0;  // indirect due to a tofino limitation
+	afd_md.threshold_hi = afd_md.threshold + candidate_delta;
     }
     action hi_boundary_compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
         // At the high boundary, the high candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-        afd_md.threshold_lo        = afd_md.threshold - candidate_delta;
-        afd_md.threshold_hi        = afd_md.threshold;
+	threshold_delta_minus = candidate_delta;  // indirect due to a tofino limitation
+	afd_md.threshold_hi = afd_md.threshold;
     }
     action compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-        afd_md.threshold_lo        = afd_md.threshold - candidate_delta;
-        afd_md.threshold_hi        = afd_md.threshold + candidate_delta;
+	threshold_delta_minus = candidate_delta;  // indirect due to a tofino limitation
+	afd_md.threshold_hi = afd_md.threshold + candidate_delta;
     }
     table compute_candidates {
         key = {
@@ -117,6 +126,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md){
             compute_candidates_act;
             hi_boundary_compute_candidates_act;
         }
+	size = 32;
         /*
         // Python code for printing const entries
         lowest = 10
@@ -154,9 +164,31 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md){
         }
     }
 
+int<1> dummy = 0;
+action indirect_sub_act() {
+		afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
+}
+table indirect_sub_tbl {
+key = {
+dummy: exact;
+}
+actions = {
+indirect_sub_act;
+}
+const entries = {
+0 : indirect_sub_act();
+}
+default_action = indirect_sub_act();
+size = 1;
+}
+
 
 	apply {
 		tb_match_ip.apply();
-        compute_candidates.apply();
+read_or_write_threshold.apply();
+		compute_candidates.apply();
+		indirect_sub_tbl.apply();
+	        
+		//afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
 	}
 }

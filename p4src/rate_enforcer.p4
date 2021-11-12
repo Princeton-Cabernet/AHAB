@@ -1,6 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 #include "define.h"
 
+#define DROP_PROB_LOOKUP_TBL_SIZE 512
 typedef bit<5> shifted_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
 typedef bit<8> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,256]
 struct drop_prob_pair_t {
@@ -18,22 +19,22 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     */
 
     Random<drop_prob_t>() rng;
-    drop_prob_t rng_output;
-    drop_prob_t drop_probability;     // set by lookup table to 1 - min(1, threshold / measured_rate)
-    drop_prob_t drop_probability_lo;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
-    drop_prob_t drop_probability_hi;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
+    //drop_prob_t rng_output;
+    drop_prob_t drop_probability = 0;     // set by lookup table to 1 - min(1, threshold / measured_rate)
+    drop_prob_t drop_probability_lo = 0;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
+    drop_prob_t drop_probability_hi = 0;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
 
     shifted_rate_t measured_rate_shifted;
     shifted_rate_t threshold_lo_shifted;
     shifted_rate_t threshold_shifted;
     shifted_rate_t threshold_hi_shifted;
 
-    bit<1> drop_flag_lo;
-    bit<1> drop_flag_hi;
+    bit<1> drop_flag_lo = 0;
+    bit<1> drop_flag_hi = 0;
 
     Register<bit<1>, bit<1>>(1) flipflop_reg;
-    RegisterAction<bit<1>, bit<1>, bit<1>>(flipflop_reg) get_flipflop = {
-        void apply(inout bit<1> stored, out bit<1> returned) {
+    RegisterAction<bit<8>, bit<1>, bit<8>>(flipflop_reg) get_flipflop = {
+        void apply(inout bit<8> stored, out bit<8> returned) {
             if (stored == 1) {
                 stored = 0;
                 returned = 0;
@@ -43,6 +44,8 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             }
         }
     };
+    drop_prob_t rng_output = rng.get();
+    bit<1> flipflop = (bit<1>) get_flipflop.execute(0);  // hack for easier comparisons using registers
 
     /* --------------------------------------------------------------------------------------
      *  Probabilistically set the drop flag based upon current fair rate threshold
@@ -53,10 +56,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability) {
                 drop_decision = 1;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             } else {
                 drop_decision = 0;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             }
         }
     };
@@ -65,10 +68,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability) {
                 drop_decision = 1;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             } else {
                 drop_decision = 0;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             }
         }
     };
@@ -82,10 +85,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_lo) {
                 drop_decision = 1w1;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             } else {
                 drop_decision = 1w0;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             }
         }
     };
@@ -94,10 +97,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_lo) {
                 drop_decision = 1w1;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             } else {
                 drop_decision = 1w0;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             }
         }
     };
@@ -111,10 +114,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_hi) {
                 drop_decision = 1w1;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             } else {
                 drop_decision = 1w0;
-                stored_rng_vals.lo = rng_output
+                stored_rng_vals.lo = rng_output;
             }
         }
     };
@@ -123,10 +126,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_hi) {
                 drop_decision = 1w1;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             } else {
                 drop_decision = 1w0;
-                stored_rng_vals.hi = rng_output
+                stored_rng_vals.hi = rng_output;
             }
         }
     };
@@ -135,7 +138,6 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     /* --------------------------------------------------------------------------------------
      * Tables for calling the probabilistic drop registers
      * -------------------------------------------------------------------------------------- */
-    bit<1> flipflop;
     // True drop flag table
     @hidden
     action get_flip_drop_flag() {
@@ -146,13 +148,13 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         drop_flag = get_flop_drop_flag_regact.execute(0);
     }
     @hidden
-    table get_drop_flag() {
+    table get_drop_flag {
         key = {
             flipflop: exact;
         }
         actions = {
-            get_flip_drop_flags;
-            get_flop_drop_flags;
+            get_flip_drop_flag;
+            get_flop_drop_flag;
         }
         size = 2;
         const entries = {
@@ -170,7 +172,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         drop_flag_lo = get_flop_drop_flag_lo_regact.execute(0);
     }
     @hidden
-    table get_drop_flag_lo() {
+    table get_drop_flag_lo {
         key = {
             flipflop: exact;
         }
@@ -194,7 +196,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         drop_flag_hi = get_flop_drop_flag_hi_regact.execute(0);
     }
     @hidden
-    table get_drop_flag_hi() {
+    table get_drop_flag_hi {
         key = {
             flipflop: exact;
         }
@@ -215,15 +217,15 @@ control RateEnforcer(inout afd_metadata_t afd_md,
      * and carry them to the egress rate estimators.
      * -------------------------------------------------------------------------------------- */
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_lo;
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_lo) grab_lo_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) grab_lo_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
-            bytes_sent = dumped_bytes + pkt_len;
+            bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
             dumped_bytes = 0;
         }
     };
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_lo) dump_lo_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) dump_lo_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
-            dumped_bytes = dumped_bytes + pkt_len;
+            dumped_bytes = dumped_bytes + afd_md.scaled_pkt_len;
             bytes_sent = 0;
         }
     };
@@ -251,13 +253,13 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         size = 4;
     }
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_hi;
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_hi) grab_hi_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) grab_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
             bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
             dumped_bytes = 0;
         }
     };
-    RegisterAction<bytecount_t, bytecount_t, vlink_index_t>(byte_store_hi) dump_hi_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) dump_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
             dumped_bytes = dumped_bytes + afd_md.scaled_pkt_len;
             bytes_sent = 0;
@@ -293,28 +295,28 @@ control RateEnforcer(inout afd_metadata_t afd_md,
      * -------------------------------------------------------------------------------------- */
     // TODO: rshift action for every value in [0, 24]
 	action rshift_8() {
-        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 8;
-        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 8;
-        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 8;
-        measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 8;
+        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 8);
+        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 8);
+        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 8);
+        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 8);
 	}
 	action rshift_4() {
-        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 4;
-        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 4;
-        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 4;
-        measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 4;
+        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 4);
+        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 4);
+        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 4);
+        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 4);
 	}
 	action rshift_2() {
-        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo  >> 2;
-        threshold_shifted     = (shifted_rate_t) afd_md.threshold     >> 2;
-        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi  >> 2;
-        measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate >> 2;
+        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 2);
+        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 2);
+        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 2);
+        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 2);
 	}
 	action rshift_0() {
-        threshold_lo_shifted  = (shifted_rate_t) afd_md.threshold_lo;
-        threshold_shifted     = (shifted_rate_t) afd_md.threshold;
-        threshold_hi_shifted  = (shifted_rate_t) afd_md.threshold_hi;
-        measured_rate_shifted = (shifted_rate_t) afd_md.measured_rate;
+        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo);
+        threshold_shifted     = (shifted_rate_t) (afd_md.threshold);
+        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi);
+        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate);
 	}
 	table shift_measured_rate {
 		key = {
@@ -328,9 +330,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             rshift_0;
         }
 		default_action = rshift_0();
-        const entries = {
+        //const entries = {
             // TODO
-        }
+        //}
+size  = 32;
 	}
     /* --------------------------------------------------------------------------------------
      * Lookup tables that map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
@@ -350,7 +353,8 @@ control RateEnforcer(inout afd_metadata_t afd_md,
 		actions = {
             load_drop_prob_act;
         }
-		default_action=load_drop_chance(0);
+		default_action=load_drop_prob_act(0);
+size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
     // Grab lo drop probability
     action load_drop_prob_lo_act(drop_prob_t prob) {
@@ -365,6 +369,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             load_drop_prob_lo_act;
         }
 		default_action = load_drop_prob_lo_act(0);
+size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
     // Grab hi drop probability
     action load_drop_prob_hi_act(drop_prob_t prob) {
@@ -379,6 +384,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             load_drop_prob_hi_act;
         }
 		default_action=load_drop_prob_hi_act(0);
+size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
 
 	apply {
@@ -390,8 +396,6 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         load_drop_prob_lo.apply();
         load_drop_prob_hi.apply();
         
-        rng_output = rng.get();
-        flipflop = get_flipflop.execute(0);  // hack for easier comparisons using registers
         // Get true drop flag and simulated drop flags, by comparing
         //  lookup table outputs to an RNG value. If rng < output, mark to drop.
         get_drop_flag.apply();
