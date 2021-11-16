@@ -67,6 +67,10 @@ size = 32;
     action output_lshift_0() {
         t_new = div_result_mantissa << 0;
     }
+    action output_too_small() {
+        // Call this action if div_result_exponent is negative
+        t_new = 0;
+    }
     table shift_lookup_output {
         key = { div_result_exponent : exact; }
         actions = {
@@ -74,8 +78,9 @@ size = 32;
             output_lshift_4;
             output_lshift_2;
             output_lshift_0;
+            output_too_small;
         }
-        default_action = output_lshift_0;
+        default_action = output_too_small;
 size = 32;
         //const entries = {
             // TODO

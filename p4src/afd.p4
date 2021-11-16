@@ -3,15 +3,15 @@
 #include <core.p4>
 #include <tna.p4>
 
-#include "headers.h"
-#include "metadata.h"
-#include "parsers.h"
-#include "define.h"
+#include "include/headers.h"
+#include "include/metadata.h"
+#include "include/parsers.h"
+#include "include/define.h"
 
-#include "vlink_lookup.p4"
-#include "rate_estimator.p4"
-#include "rate_enforcer.p4"
-#include "threshold_interpolator.p4"
+#include "include/vlink_lookup.p4"
+#include "include/rate_estimator.p4"
+#include "include/rate_enforcer.p4"
+#include "include/threshold_interpolator.p4"
 
 
 /* TODO: where should the packet cloning occur?
