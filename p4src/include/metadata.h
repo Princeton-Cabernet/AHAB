@@ -21,13 +21,14 @@ struct afd_metadata_t {
     bit<1>                  is_worker;
 }
 
-header perslice_md_t {
-}
+@pa_auto_init_metadata
 struct ig_metadata_t {
     afd_metadata_t afd;
     bit<16> sport;
     bit<16> dport;
 }
+
+@pa_auto_init_metadata
 struct eg_metadata_t {
     afd_metadata_t afd;
 }

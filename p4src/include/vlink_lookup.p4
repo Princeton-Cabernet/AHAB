@@ -10,7 +10,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
         }
     };
     RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) write_stored_threshold = {
-        void apply(inout bytecount_t stored_threshold, out bytecount_t retval) {
+        void apply(inout bytecount_t stored_threshold) {
             stored_threshold = afd_md.new_threshold;
         }
     };
