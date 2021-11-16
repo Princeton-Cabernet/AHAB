@@ -26,17 +26,19 @@ control RateEstimator(in bit<32> src_ip,
     cms_index_t index2;
     cms_index_t index3;
 
-bit<1> dummy_bit = 0;
+    bit<1> dummy_bit = 0;
 
-action hash1_act() {
+    @hidden
+    action read_cms_act1() {
         index1 = hash_1.get({ src_ip,
                              dst_ip,
                              proto,
                              src_port,
                              dst_port});
         cms_output_1 = lpf_1.execute(sketch_input, index1);
-}
-action hash2_act() {
+    }
+    @hidden
+    action read_cms_act2() {
         index2 = hash_2.get({ src_ip,
                              3w0,
                              dst_ip,
@@ -45,8 +47,9 @@ action hash2_act() {
                              src_port,
                              dst_port});
         cms_output_2 = lpf_2.execute(sketch_input, index2);
-}
-action hash3_act() {
+    }
+    @hidden
+    action read_cms_act3() {
         index3 = hash_3.get({ src_ip,
                              dst_ip,
                              2w0,
@@ -56,39 +59,37 @@ action hash3_act() {
                              1w0,
                              dst_port});
         cms_output_3 = lpf_3.execute(sketch_input, index3);
-}
+    }
 
-table hash1_tbl {
-    key = { dummy_bit: exact; }
-    actions = { hash1_act; }
-    const entries = { 0 : hash1_act(); }
-    size = 1;
-}
-table hash2_tbl {
-    key = { dummy_bit: exact; }
-    actions = { hash2_act; }
-    const entries = { 0 : hash2_act(); }
-    size = 1;
-}
-table hash3_tbl {
-    key = { dummy_bit: exact; }
-    actions = { hash3_act; }
-    const entries = { 0 : hash3_act(); }
-    size = 1;
-}
+    @hidden
+    table cms_tbl1 {
+        key = { dummy_bit: exact; }
+        actions = { read_cms_act1; }
+        const entries = { 0 : read_cms_act1(); }
+        size = 1;
+    }
+    @hidden
+    table cms_tbl2 {
+        key = { dummy_bit: exact; }
+        actions = { read_cms_act2; }
+        const entries = { 0 : read_cms_act2(); }
+        size = 1;
+    }
+    @hidden
+    table cms_tbl3 {
+        key = { dummy_bit: exact; }
+        actions = { read_cms_act3; }
+        const entries = { 0 : read_cms_act3(); }
+        size = 1;
+    }
 
 
 
     apply {
         // Get CMS indices
-        hash1_tbl.apply();
-        hash2_tbl.apply();
-        hash3_tbl.apply();
-
-        // Get register contents
-        //cms_output_1 = lpf_1.execute(sketch_input, index1);
-        //cms_output_2 = lpf_2.execute(sketch_input, index2);
-        //cms_output_3 = lpf_3.execute(sketch_input, index3);
+        cms_tbl1.apply();
+        cms_tbl2.apply();
+        cms_tbl3.apply();
 
         // Get the minimum of all register contents
         sketch_output = min<bytecount_t>(cms_output_1, cms_output_2);

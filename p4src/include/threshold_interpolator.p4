@@ -1,21 +1,6 @@
+// Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-/* TODO: THIS FILE
-Save 2**k somewhere (the offset between T_lo and T_mid or T_mid and T_hi? Too expensive to compute it on-the-fly.
-Can we load T_mid, T_low, T_high and 2**k all at once somewhere?
-Load T_mid and 2**k, then compute T_low and T_high
-
-
-*/
-
-/* Interpolation:
- * Input is three points: (T_lo, R_lo), (T_mid, R_mid), (T_hi, R_hi)
- * If using (lo, mid), do T - dT. If using (mid, hi), do T + dT
- * How do we choose which points to use? compare R_desired to R_lo, R_mid, R_hi. R_desired is fixed (compile-time?)
- * Compare r_desired to each of r_lo, r_mid, r_hi. Get three bits out. Table maps all 3-bit combinations to interpolation actions
- *
- *
- */
-
+@hidden
 enum bit<2> InterpolationOp {
     NONE = 0x0,
     LEFT = 0x1,
@@ -36,14 +21,17 @@ control InterpolateFairRate(in bytecount_t numerator, in bytecount_t denominator
     exponent_t div_result_exponent;
     bytecount_t div_result_mantissa;
 
+    @hidden
     action input_rshift_4() {
         shifted_numerator   = (div_lookup_key_t) numerator >> 4;
         shifted_denominator = (div_lookup_key_t) denominator >> 4;
     }
+    @hidden
     action input_rshift_0() {
         shifted_numerator   = (div_lookup_key_t) numerator >> 0;
         shifted_denominator = (div_lookup_key_t) denominator >> 0;
     }
+    @hidden
     table shift_lookup_inputs {
         key = { denominator : ternary; }
         actions = {
@@ -58,19 +46,24 @@ size = 32;
         //}
     }
 
+    @hidden
     action output_lshift_4() {
         t_new = div_result_mantissa << 4;
     }
+    @hidden
     action output_lshift_2() {
         t_new = div_result_mantissa << 2;
     }
+    @hidden
     action output_lshift_0() {
         t_new = div_result_mantissa << 0;
     }
+    @hidden
     action output_too_small() {
         // Call this action if div_result_exponent is negative
         t_new = 0;
     }
+    @hidden
     table shift_lookup_output {
         key = { div_result_exponent : exact; }
         actions = {
@@ -81,7 +74,7 @@ size = 32;
             output_too_small;
         }
         default_action = output_too_small;
-size = 32;
+        size = 32;
         //const entries = {
             // TODO
         //}
@@ -98,15 +91,18 @@ size = 32;
         }
         actions = { load_division_result; }
         default_action=load_division_result(0, 0);
-size = INTERPOLATION_DIVISION_LOOKUP_TBL_SIZE;
+        size = INTERPOLATION_DIVISION_LOOKUP_TBL_SIZE;
     }
 
+    @hidden
     action final_interpolation_result_left() {
         t_new = t_mid - t_new;
     }
+    @hidden
     action final_interpolation_result_right() {
         t_new = t_mid + t_new;
     }
+    @hidden
     table final_interpolation_result {
         key = {
             interp_op : exact;
@@ -151,40 +147,47 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
     bytecount_t drate_lo;
     bytecount_t drate_hi;
 
-bit<1> dummy_bit = 0;
-action rate_act() {
-    vlink_rate = current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
-}
-table rate_tbl {
-key = { dummy_bit : exact; }
-actions = { rate_act; }
-const entries = { 0 : rate_act(); }
-size = 1;
-}
-action rate_lo_act() {
-    vlink_rate_lo = lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
-}
-table rate_lo_tbl {
-key = { dummy_bit : exact; }
-actions = { rate_lo_act; }
-const entries = { 0 : rate_lo_act(); }
-size = 1;
-}
-action rate_hi_act() {
-    vlink_rate_hi = hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
-}
-table rate_hi_tbl {
-key = { dummy_bit : exact; }
-actions = { rate_hi_act; }
-const entries = { 0 : rate_hi_act(); }
-size = 1;
-}
+    bit<1> dummy_bit = 0;
+    @hidden
+    action rate_act() {
+        vlink_rate = current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
+    }
+    @hidden
+    table rate_tbl {
+        key = { dummy_bit : exact; }
+        actions = { rate_act; }
+        const entries = { 0 : rate_act(); }
+        size = 1;
+    }
+    @hidden
+    action rate_lo_act() {
+        vlink_rate_lo = lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
+    }
+    @hidden
+    table rate_lo_tbl {
+        key = { dummy_bit : exact; }
+        actions = { rate_lo_act; }
+        const entries = { 0 : rate_lo_act(); }
+        size = 1;
+    }
+    @hidden
+    action rate_hi_act() {
+        vlink_rate_hi = hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
+    }
+    @hidden
+    table rate_hi_tbl {
+        key = { dummy_bit : exact; }
+        actions = { rate_hi_act; }
+        const entries = { 0 : rate_hi_act(); }
+        size = 1;
+    }
 
 
     InterpolationOp interp_op;
     bytecount_t interp_numerator;
     bytecount_t interp_denominator;
 
+    @hidden
     Register<epoch_t, vlink_index_t>(NUM_VLINKS) last_worker_epoch;
     RegisterAction<epoch_t, vlink_index_t, bit<1>>(last_worker_epoch) choose_to_work = {
         void apply(inout epoch_t stored_epoch, out bit<1> time_to_work) {
@@ -196,36 +199,43 @@ size = 1;
             }
         }
     };
-action choose_to_work_act() {
-    afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
-}
-table choose_to_work_tbl {
-key = { dummy_bit : exact; }
-actions = { choose_to_work_act; }
-const entries = { 0 : choose_to_work_act(); }
-size = 1;
-}
+    @hidden
+    action choose_to_work_act() {
+        afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
+    }
+    @hidden
+    table choose_to_work_tbl {
+        key = { dummy_bit : exact; }
+        actions = { choose_to_work_act; }
+        const entries = { 0 : choose_to_work_act(); }
+        size = 1;
+    }
 
 
 
+    @hidden
     action set_interpolate_left() {
         interp_op = InterpolationOp.LEFT;
         interp_numerator   = vlink_rate         - DESIRED_VLINK_RATE;
         interp_denominator = vlink_rate         - vlink_rate_lo;
     }
+    @hidden
     action set_interpolate_right() {
         interp_op = InterpolationOp.RIGHT;
         interp_numerator   = DESIRED_VLINK_RATE - vlink_rate;
         interp_denominator = vlink_rate_hi      - vlink_rate;
     }
+    @hidden
     action choose_middle_candidate() {
         interp_op = InterpolationOp.NONE;
         afd_md.new_threshold = afd_md.threshold;
     }
+    @hidden
     action choose_low_candidate() {
         interp_op = InterpolationOp.NONE;
         afd_md.new_threshold = afd_md.threshold_lo;
     }
+    @hidden
     action choose_high_candidate() {
         interp_op = InterpolationOp.NONE;
         afd_md.new_threshold = afd_md.threshold_hi;
@@ -237,6 +247,7 @@ size = 1;
 #define TERNARY_POS_CHECK 32w0 &&& 32w0x70000000
 #define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
 #define TERNARY_DONT_CARE 32w0 &&& 32w0
+    @hidden
     table choose_interpolation_action {
         key = {
             drate_lo : ternary;
@@ -263,11 +274,12 @@ size = 1;
             (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_right();    // between mid and high
             (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_POS_CHECK) : choose_high_candidate();    // above high candidate
         }
-size = 8;
+        size = 8;
         default_action = choose_middle_candidate();  // Something went wrong, stick with the current fair rate threshold
     }
 
     
+    @hidden
     Register<bytecount_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
     RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(winning_thresholds) grab_new_threshold_regact = {
         void apply(inout bytecount_t stored, out bytecount_t retval) {
@@ -279,12 +291,15 @@ size = 8;
             stored = afd_md.new_threshold;
         }
     };
+    @hidden
     action grab_new_threshold() {
         afd_md.new_threshold = grab_new_threshold_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     action dump_new_threshold() {
         dump_new_threshold_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     table dump_or_grab_new_threshold {
         key = {
             afd_md.is_worker : exact;
@@ -297,7 +312,7 @@ size = 8;
             0 : dump_new_threshold();
             1 : grab_new_threshold();
         }
-size = 2;
+    size = 2;
     }
 
     InterpolateFairRate() interpolate;
@@ -312,6 +327,7 @@ size = 2;
             drate_hi = vlink_rate_hi - DESIRED_VLINK_RATE;
             
             // Check if it is time to do some work
+            // TODO: move worker generation logic to a separate module
             choose_to_work_tbl.apply();
             // If it is time, interpolate the new fair rate threshold
             choose_interpolation_action.apply();

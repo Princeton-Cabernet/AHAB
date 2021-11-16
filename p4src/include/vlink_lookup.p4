@@ -1,10 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
-    // Load vlink ID + threshold - stage1
-    // Load threshold delta exponent - stage2
-bytecount_t threshold_delta_plus = 0;
-bytecount_t threshold_delta_minus = 0;
+    bytecount_t threshold_delta_minus = 0;
 
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
     RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) read_stored_threshold = {
@@ -17,27 +14,29 @@ bytecount_t threshold_delta_minus = 0;
             stored_threshold = afd_md.new_threshold;
         }
     };
-action read_stored_threshold_act() {
+    @hidden
+    action read_stored_threshold_act() {
         afd_md.threshold = read_stored_threshold.execute(afd_md.vlink_id);
-}
-action write_stored_threshold_act() {
+    }
+    @hidden
+    action write_stored_threshold_act() {
         write_stored_threshold.execute(afd_md.vlink_id);
-}
-
-table read_or_write_threshold {
-key = {
-afd_md.is_worker: exact;
-}
-actions = {
-read_stored_threshold_act;
-write_stored_threshold_act;
-}
-const entries = {
-0: read_stored_threshold_act();
-1: write_stored_threshold_act();
-}
-size = 2;
-}
+    }
+    @hidden
+    table read_or_write_threshold {
+        key = {
+            afd_md.is_worker: exact;
+        }
+        actions = {
+            read_stored_threshold_act;
+            write_stored_threshold_act;
+        }
+        const entries = {
+            0: read_stored_threshold_act();
+            1: write_stored_threshold_act();
+        }
+        size = 2;
+    }
 	action set_vlink_rshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 2);
@@ -97,26 +96,30 @@ size = 2;
 
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
     // So the new lo and hi fair rate thresholds will be roughly +- 50%
+    @hidden
     action lo_boundary_compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
         // At the low boundary, the low candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-	threshold_delta_minus = 0;  // indirect due to a tofino limitation
-	afd_md.threshold_hi = afd_md.threshold + candidate_delta;
+        threshold_delta_minus = 0;  // indirect due to a tofino limitation
+        afd_md.threshold_hi = afd_md.threshold + candidate_delta;
     }
+    @hidden
     action hi_boundary_compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
         // At the high boundary, the high candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-	threshold_delta_minus = candidate_delta;  // indirect due to a tofino limitation
-	afd_md.threshold_hi = afd_md.threshold;
+        threshold_delta_minus = candidate_delta;  // indirect subtraction for tofino
+        afd_md.threshold_hi = afd_md.threshold;
     }
+    @hidden
     action compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-	threshold_delta_minus = candidate_delta;  // indirect due to a tofino limitation
-	afd_md.threshold_hi = afd_md.threshold + candidate_delta;
+        threshold_delta_minus = candidate_delta;  // indirect subtraction for tofino
+        afd_md.threshold_hi = afd_md.threshold + candidate_delta;
     }
+    @hidden
     table compute_candidates {
         key = {
             afd_md.threshold : ternary; // find the highest bit
@@ -126,7 +129,7 @@ size = 2;
             compute_candidates_act;
             hi_boundary_compute_candidates_act;
         }
-	size = 32;
+        size = 32;
         /*
         // Python code for printing const entries
         lowest = 10
@@ -140,6 +143,8 @@ size = 2;
             print("(0x%x &&& 0x%x): %s;" % (1 << i, (0xffffffff << i) & 0xffffffff, act_str))
 
         */
+        // TODO: Maybe this table shouldn't be constant/hidden. 
+        //       We may want to change the range of thresholds at runtime.
         const entries = {
             (0x20 &&& 0xffffffe0): lo_boundary_compute_candidates_act(16, 4);
             (0x40 &&& 0xffffffc0): compute_candidates_act(32, 5);
@@ -164,31 +169,31 @@ size = 2;
         }
     }
 
-int<1> dummy = 0;
-action indirect_sub_act() {
-		afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
-}
-table indirect_sub_tbl {
-key = {
-dummy: exact;
-}
-actions = {
-indirect_sub_act;
-}
-const entries = {
-0 : indirect_sub_act();
-}
-default_action = indirect_sub_act();
-size = 1;
-}
+    int<1> dummy = 0;
+    @hidden
+    action indirect_sub_act() {
+            afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
+    }
+    @hidden
+    table indirect_sub_tbl {
+        key = {
+            dummy: exact;
+        }
+        actions = {
+            indirect_sub_act;
+        }
+        const entries = {
+            0 : indirect_sub_act();
+        }
+        default_action = indirect_sub_act();
+        size = 1;
+    }
 
 
 	apply {
 		tb_match_ip.apply();
-read_or_write_threshold.apply();
+        read_or_write_threshold.apply();
 		compute_candidates.apply();
 		indirect_sub_tbl.apply();
-	        
-		//afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
 	}
 }

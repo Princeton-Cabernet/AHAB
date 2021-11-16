@@ -31,8 +31,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
 
     bit<1> drop_flag_lo = 0;
     bit<1> drop_flag_hi = 0;
-
+    
+    @hidden
     Register<bit<1>, bit<1>>(1) flipflop_reg;
+    @hidden
     RegisterAction<bit<8>, bit<1>, bit<8>>(flipflop_reg) get_flipflop = {
         void apply(inout bit<8> stored, out bit<8> returned) {
             if (stored == 1) {
@@ -50,6 +52,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     /* --------------------------------------------------------------------------------------
      *  Probabilistically set the drop flag based upon current fair rate threshold
      * -------------------------------------------------------------------------------------- */
+    @hidden
     Register<drop_prob_pair_t, bit<1>>(1) drop_flag_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_calculator) get_flip_drop_flag_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
@@ -79,6 +82,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     /* --------------------------------------------------------------------------------------
      *  Pretend to probabilistically drop using threshold_lo as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
+    @hidden
     Register<drop_prob_pair_t, bit<1>>(1) drop_flag_lo_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
@@ -108,6 +112,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     /* --------------------------------------------------------------------------------------
      *  Pretend to probabilistically drop using threshold_hi as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
+    @hidden
     Register<drop_prob_pair_t, bit<1>>(1) drop_flag_hi_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
@@ -216,6 +221,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
      * add the bytes of this packet to a per-slice byte store. The next non-dropped packet will pick up the bytes
      * and carry them to the egress rate estimators.
      * -------------------------------------------------------------------------------------- */
+    @hidden
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_lo;
     RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) grab_lo_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
@@ -229,12 +235,15 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             bytes_sent = 0;
         }
     };
+    @hidden
     action grab_lo_bytes() {
         afd_md.bytes_sent_lo = grab_lo_bytes_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     action dump_lo_bytes() {
         dump_lo_bytes_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     table dump_or_grab_lo_bytes {
         key = {
             drop_flag : exact;
@@ -252,6 +261,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
         size = 4;
     }
+    @hidden
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_hi;
     RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) grab_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
@@ -265,12 +275,15 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             bytes_sent = 0;
         }
     };
+    @hidden
     action grab_hi_bytes() {
         afd_md.bytes_sent_hi = grab_hi_bytes_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     action dump_hi_bytes() {
         dump_hi_bytes_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     table dump_or_grab_hi_bytes {
         key = {
             drop_flag : exact;
@@ -333,7 +346,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         //const entries = {
             // TODO
         //}
-size  = 32;
+        size  = 32;
 	}
     /* --------------------------------------------------------------------------------------
      * Lookup tables that map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
@@ -342,9 +355,11 @@ size  = 32;
      *  for i < j*
      * -------------------------------------------------------------------------------------- */
     // Grab true drop probability
+    @hidden
     action load_drop_prob_act(drop_prob_t prob) {
         drop_probability = prob;
     }
+    @hidden
 	table load_drop_prob {
 		key = {
             threshold_shifted : exact;
@@ -354,12 +369,14 @@ size  = 32;
             load_drop_prob_act;
         }
 		default_action=load_drop_prob_act(0);
-size = DROP_PROB_LOOKUP_TBL_SIZE;
+        size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
     // Grab lo drop probability
+    @hidden
     action load_drop_prob_lo_act(drop_prob_t prob) {
         drop_probability_lo = prob;
     }
+    @hidden
 	table load_drop_prob_lo {
 		key = {
             threshold_lo_shifted : exact;
@@ -369,12 +386,14 @@ size = DROP_PROB_LOOKUP_TBL_SIZE;
             load_drop_prob_lo_act;
         }
 		default_action = load_drop_prob_lo_act(0);
-size = DROP_PROB_LOOKUP_TBL_SIZE;
+        size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
     // Grab hi drop probability
+    @hidden
     action load_drop_prob_hi_act(drop_prob_t prob) {
         drop_probability_hi = prob;
     }
+    @hidden
 	table load_drop_prob_hi {
 		key = {
             threshold_hi_shifted : exact;
@@ -384,7 +403,7 @@ size = DROP_PROB_LOOKUP_TBL_SIZE;
             load_drop_prob_hi_act;
         }
 		default_action=load_drop_prob_hi_act(0);
-size = DROP_PROB_LOOKUP_TBL_SIZE;
+        size = DROP_PROB_LOOKUP_TBL_SIZE;
 	}
 
 	apply {
