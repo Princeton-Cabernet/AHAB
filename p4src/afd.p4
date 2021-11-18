@@ -61,9 +61,9 @@ control SwitchIngress(
         if (afd_drop_flag == 1) {
             // TODO: send to low-priority queue instead of outright dropping
             ig_dprsr_md.drop_ctl = 1;
+        }
+        // TODO: bridge afd metadata
     }
-    // TODO: bridge afd metadata
-}
 }
 
 
@@ -77,11 +77,52 @@ control SwitchEgress(
 
     ThresholdInterpolator() threshold_interpolator;
 
+    @hidden
+    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) grab_new_threshold_regact = {
+        void apply(inout byterate_t stored, out byterate_t retval) {
+            retval = stored;
+        }
+    };
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
+        void apply(inout byterate_t stored) {
+            stored = afd_md.new_threshold;
+        }
+    };
+    @hidden
+    action grab_new_threshold() {
+        afd_md.new_threshold = grab_new_threshold_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    action dump_new_threshold() {
+        dump_new_threshold_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    table dump_or_grab_new_threshold {
+        key = {
+            afd_md.is_worker : exact;
+        }
+        actions = {
+            dump_new_threshold;
+            grab_new_threshold;
+        }
+        const entries = {
+            0 : dump_new_threshold();
+            1 : grab_new_threshold();
+        }
+    size = 2;
+    }
+
     apply {
         // Choose a new threshold
-        threshold_interpolator.apply(eg_md.afd);
+        if (eg_md.afd.is_worker == 0) {
+            threshold_interpolator.apply(eg_md.afd);
+        }
+        // If normal packet, save the new threshold. If a worker packet, load the new one
+        dump_or_grab_new_threshold.apply();
+
         if (eg_md.afd.is_worker == 1) {
-            // TODO: recirculate afd_md.new_threshold back to ingress
+            // TODO: recirculate afd_md.new_threshold to every ingress pipe
         }
     }
 }

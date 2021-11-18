@@ -1,0 +1,130 @@
+@hidden
+input_rshift_1() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 1);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 1);
+}
+@hidden
+input_rshift_2() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 2);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 2);
+}
+@hidden
+input_rshift_3() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 3);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 3);
+}
+@hidden
+input_rshift_4() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 4);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 4);
+}
+@hidden
+input_rshift_5() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 5);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 5);
+}
+@hidden
+input_rshift_6() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 6);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 6);
+}
+@hidden
+input_rshift_7() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 7);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 7);
+}
+@hidden
+input_rshift_8() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 8);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 8);
+}
+@hidden
+input_rshift_9() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 9);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 9);
+}
+@hidden
+input_rshift_10() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 10);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 10);
+}
+@hidden
+input_rshift_11() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 11);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 11);
+}
+@hidden
+input_rshift_12() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 12);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 12);
+}
+@hidden
+input_rshift_13() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 13);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 13);
+}
+@hidden
+input_rshift_14() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 14);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 14);
+}
+@hidden
+input_rshift_15() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 15);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 15);
+}
+@hidden
+input_rshift_16() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 16);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 16);
+}
+@hidden
+input_rshift_17() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 17);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 17);
+}
+@hidden
+input_rshift_18() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 18);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 18);
+}
+@hidden
+input_rshift_19() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 19);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 19);
+}
+@hidden
+input_rshift_20() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 20);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 20);
+}
+@hidden
+input_rshift_21() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 21);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 21);
+}
+@hidden
+input_rshift_22() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 22);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 22);
+}
+@hidden
+input_rshift_23() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 23);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 23);
+}
+@hidden
+input_rshift_24() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 24);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 24);
+}
+@hidden
+input_rshift_25() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 25);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 25);
+}
+@hidden
+input_rshift_26() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 26);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 26);
+}

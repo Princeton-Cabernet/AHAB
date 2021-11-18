@@ -1,0 +1,96 @@
+@hidden
+output_lshift_0() {
+    t_new = div_result_mantissa << 0;
+}
+@hidden
+output_lshift_1() {
+    t_new = div_result_mantissa << 1;
+}
+@hidden
+output_lshift_2() {
+    t_new = div_result_mantissa << 2;
+}
+@hidden
+output_lshift_3() {
+    t_new = div_result_mantissa << 3;
+}
+@hidden
+output_lshift_4() {
+    t_new = div_result_mantissa << 4;
+}
+@hidden
+output_lshift_5() {
+    t_new = div_result_mantissa << 5;
+}
+@hidden
+output_lshift_6() {
+    t_new = div_result_mantissa << 6;
+}
+@hidden
+output_lshift_7() {
+    t_new = div_result_mantissa << 7;
+}
+@hidden
+output_lshift_8() {
+    t_new = div_result_mantissa << 8;
+}
+@hidden
+output_lshift_9() {
+    t_new = div_result_mantissa << 9;
+}
+@hidden
+output_lshift_10() {
+    t_new = div_result_mantissa << 10;
+}
+@hidden
+output_lshift_11() {
+    t_new = div_result_mantissa << 11;
+}
+@hidden
+output_lshift_12() {
+    t_new = div_result_mantissa << 12;
+}
+@hidden
+output_lshift_13() {
+    t_new = div_result_mantissa << 13;
+}
+@hidden
+output_lshift_14() {
+    t_new = div_result_mantissa << 14;
+}
+@hidden
+output_lshift_15() {
+    t_new = div_result_mantissa << 15;
+}
+@hidden
+output_lshift_16() {
+    t_new = div_result_mantissa << 16;
+}
+@hidden
+output_lshift_17() {
+    t_new = div_result_mantissa << 17;
+}
+@hidden
+output_lshift_18() {
+    t_new = div_result_mantissa << 18;
+}
+@hidden
+output_lshift_19() {
+    t_new = div_result_mantissa << 19;
+}
+@hidden
+output_lshift_20() {
+    t_new = div_result_mantissa << 20;
+}
+@hidden
+output_lshift_21() {
+    t_new = div_result_mantissa << 21;
+}
+@hidden
+output_lshift_22() {
+    t_new = div_result_mantissa << 22;
+}
+@hidden
+output_lshift_23() {
+    t_new = div_result_mantissa << 23;
+}

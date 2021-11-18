@@ -1,16 +1,16 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
-    bytecount_t threshold_delta_minus = 0;
+    byterate_t threshold_delta_minus = 0;
 
-    Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) read_stored_threshold = {
-        void apply(inout bytecount_t stored_threshold, out bytecount_t retval) {
+    Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
+        void apply(inout byterate_t stored_threshold, out byterate_t retval) {
             retval = stored_threshold;
         }
     };
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(stored_thresholds) write_stored_threshold = {
-        void apply(inout bytecount_t stored_threshold) {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold = {
+        void apply(inout byterate_t stored_threshold) {
             stored_threshold = afd_md.new_threshold;
         }
     };
@@ -25,7 +25,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     @hidden
     table read_or_write_threshold {
         key = {
-            afd_md.is_worker: exact;
+            afd_md.is_worker : exact; // TODO: set the is_worker flag on recirculation
         }
         actions = {
             read_stored_threshold_act;
@@ -76,7 +76,6 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 	table tb_match_ip{
 		key = {
             hdr.ipv4.dst_addr: lpm;
-            afd_md.is_worker : exact; // TODO: set the is_worker flag on recirculation
         }
 		actions = {
 			set_vlink_rshift2;
@@ -97,7 +96,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
     // So the new lo and hi fair rate thresholds will be roughly +- 50%
     @hidden
-    action lo_boundary_compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
+    action lo_boundary_compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
         // At the low boundary, the low candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
@@ -105,7 +104,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
         afd_md.threshold_hi = afd_md.threshold + candidate_delta;
     }
     @hidden
-    action hi_boundary_compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
+    action hi_boundary_compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
         // At the high boundary, the high candidate equals the mid (current) candidate
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
@@ -113,7 +112,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
         afd_md.threshold_hi = afd_md.threshold;
     }
     @hidden
-    action compute_candidates_act(bytecount_t candidate_delta, exponent_t candidate_delta_pow) {
+    action compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
         threshold_delta_minus = candidate_delta;  // indirect subtraction for tofino

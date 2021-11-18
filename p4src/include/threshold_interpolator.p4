@@ -7,80 +7,76 @@ enum bit<2> InterpolationOp {
     RIGHT = 0x2
 }
 
+
 #define  INTERPOLATION_DIVISION_LOOKUP_TBL_SIZE 512
 typedef bit<5> div_lookup_key_t;
 
 // private control block, not called outside this file
-control InterpolateFairRate(in bytecount_t numerator, in bytecount_t denominator, in bytecount_t t_mid,
-                            in exponent_t delta_t_log, out bytecount_t t_new, in InterpolationOp interp_op) {
+control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, in byterate_t t_mid,
+                            in exponent_t delta_t_log, out byterate_t t_new, in InterpolationOp interp_op) {
     // Calculates t_new = t_mid +- ( numerator / denominator ) * delta_t  // ( + if interp_right, - if interp_left)
 
     div_lookup_key_t shifted_numerator;    // always <= denominator
     div_lookup_key_t shifted_denominator;  // first bit always 1, use last 4 bits
 
     exponent_t div_result_exponent;
-    bytecount_t div_result_mantissa;
+    byterate_t div_result_mantissa;
 
-    @hidden
-    action input_rshift_4() {
-        shifted_numerator   = (div_lookup_key_t) numerator >> 4;
-        shifted_denominator = (div_lookup_key_t) denominator >> 4;
+    /*
+     * The following includes will contain actions of the form:
+     * @hidden
+     * action input_rshift_x() {
+     *     shifted_numerator   = (div_lookup_key_t) (numerator >> x);
+     *     shifted_denominator = (div_lookup_key_t) (denominator >> x);
+     * }
+     */
+    action input_rshift_none() {
+        shifted_numerator   = (div_lookup_key_t) numerator;
+        shifted_denominator = (div_lookup_key_t) denominator;
     }
+#include "actions_and_entries/shift_lookup_input/action_defs.p4inc"
     @hidden
-    action input_rshift_0() {
-        shifted_numerator   = (div_lookup_key_t) numerator >> 0;
-        shifted_denominator = (div_lookup_key_t) denominator >> 0;
-    }
-    @hidden
-    table shift_lookup_inputs {
+    table shift_lookup_input {
         key = { denominator : ternary; }
         actions = {
-            // TODO
-            input_rshift_4;
-            input_rshift_0;
+#include "actions_and_entries/shift_lookup_input/action_list.p4inc"
         }
         default_action = input_rshift_0();
-size = 32;
-        //const entries = {
-            // TODO
-        //}
+        size = 32;
+        const entries = {
+#include "actions_and_entries/shift_lookup_input/const_entries.p4inc"
+        }
+        default_action = input_rshift_none();
     }
 
-    @hidden
-    action output_lshift_4() {
-        t_new = div_result_mantissa << 4;
-    }
-    @hidden
-    action output_lshift_2() {
-        t_new = div_result_mantissa << 2;
-    }
-    @hidden
-    action output_lshift_0() {
-        t_new = div_result_mantissa << 0;
-    }
+    /*
+     * The following includes will contain actions of the form
+     * @hidden
+     * action output_lshift_x() {
+     *     t_new = div_result_mantissa << x;
+     * }
+     */
     @hidden
     action output_too_small() {
         // Call this action if div_result_exponent is negative
         t_new = 0;
     }
+#include "actions_and_entries/shift_lookup_output/action_defs.p4inc"
     @hidden
     table shift_lookup_output {
         key = { div_result_exponent : exact; }
         actions = {
-            // TODO
-            output_lshift_4;
-            output_lshift_2;
-            output_lshift_0;
+#include "actions_and_entries/shift_lookup_output/action_list.p4inc"
             output_too_small;
         }
         default_action = output_too_small;
         size = 32;
-        //const entries = {
-            // TODO
-        //}
+        const entries = {
+#include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
+        }
     }
 
-    action load_division_result(bytecount_t mantissa, exponent_t exponent) {
+    action load_division_result(byterate_t mantissa, exponent_t exponent) {
         div_result_mantissa = mantissa;
         div_result_exponent = exponent + delta_t_log;
     }
@@ -92,6 +88,9 @@ size = 32;
         actions = { load_division_result; }
         default_action=load_division_result(0, 0);
         size = INTERPOLATION_DIVISION_LOOKUP_TBL_SIZE;
+        const entries = {
+#include "actions_and_entries/approx_division_lookup/const_entries.p4inc"
+        }
     }
 
     @hidden
@@ -120,7 +119,7 @@ size = 32;
 
 
     apply{
-        shift_lookup_inputs.apply();
+        shift_lookup_input.apply();
         approx_division_lookup.apply();
         shift_lookup_output.apply();
         final_interpolation_result.apply();
@@ -130,7 +129,12 @@ size = 32;
 
 
 // Main for this file
-control ThresholdInterpolator(inout afd_metadata_t afd_md) {
+control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t vlink_id, 
+                              in bytecount_t bytes_sent_lo, bytecount_t bytes_sent_hi,
+                              in byterate_t threshold, 
+                              in byterate_t threshold_lo, in byterate_t threshold_hi,
+                              in exponent_t candidate_delta_pow,
+                              out byterate_t new_threshold,) {
 
     // current_rate_lpf is the true transmitted bitrate
     // lo_ and hi_ are bitrates achieved by simulating lower and higher drop rates
@@ -138,19 +142,19 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) lo_rate_lpf;
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) hi_rate_lpf;
     // Output of the LPFs
-    bytecount_t vlink_rate;
-    bytecount_t vlink_rate_lo;
-    bytecount_t vlink_rate_hi;
+    byterate_t vlink_rate;
+    byterate_t vlink_rate_lo;
+    byterate_t vlink_rate_hi;
     
     // Difference between the three LPF outputs and the desired bitrate
-    bytecount_t drate;
-    bytecount_t drate_lo;
-    bytecount_t drate_hi;
+    byterate_t drate;
+    byterate_t drate_lo;
+    byterate_t drate_hi;
 
     bit<1> dummy_bit = 0;
     @hidden
     action rate_act() {
-        vlink_rate = current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
+        vlink_rate = (byterate_t) current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
     }
     @hidden
     table rate_tbl {
@@ -161,7 +165,7 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
     }
     @hidden
     action rate_lo_act() {
-        vlink_rate_lo = lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
+        vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
     }
     @hidden
     table rate_lo_tbl {
@@ -172,7 +176,7 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
     }
     @hidden
     action rate_hi_act() {
-        vlink_rate_hi = hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
+        vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
     }
     @hidden
     table rate_hi_tbl {
@@ -184,33 +188,8 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
 
 
     InterpolationOp interp_op;
-    bytecount_t interp_numerator;
-    bytecount_t interp_denominator;
-
-    @hidden
-    Register<epoch_t, vlink_index_t>(NUM_VLINKS) last_worker_epoch;
-    RegisterAction<epoch_t, vlink_index_t, bit<1>>(last_worker_epoch) choose_to_work = {
-        void apply(inout epoch_t stored_epoch, out bit<1> time_to_work) {
-            if (stored_epoch == afd_md.epoch) {
-                time_to_work = 1w0;
-            } else {
-                time_to_work = 1w1;
-                stored_epoch = afd_md.epoch;
-            }
-        }
-    };
-    @hidden
-    action choose_to_work_act() {
-        afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
-    }
-    @hidden
-    table choose_to_work_tbl {
-        key = { dummy_bit : exact; }
-        actions = { choose_to_work_act; }
-        const entries = { 0 : choose_to_work_act(); }
-        size = 1;
-    }
-
+    byterate_t interp_numerator;
+    byterate_t interp_denominator;
 
 
     @hidden
@@ -242,7 +221,7 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
     }
 
     
-    // Width of these values is sizeof(bytecount_t)
+    // Width of these values is sizeof(byterate_t)
 #define TERNARY_NEG_CHECK 32w0x70000000 &&& 32w0x70000000
 #define TERNARY_POS_CHECK 32w0 &&& 32w0x70000000
 #define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
@@ -278,46 +257,8 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
         default_action = choose_middle_candidate();  // Something went wrong, stick with the current fair rate threshold
     }
 
-    
-    @hidden
-    Register<bytecount_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(winning_thresholds) grab_new_threshold_regact = {
-        void apply(inout bytecount_t stored, out bytecount_t retval) {
-            retval = stored;
-        }
-    };
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(winning_thresholds) dump_new_threshold_regact = {
-        void apply(inout bytecount_t stored) {
-            stored = afd_md.new_threshold;
-        }
-    };
-    @hidden
-    action grab_new_threshold() {
-        afd_md.new_threshold = grab_new_threshold_regact.execute(afd_md.vlink_id);
-    }
-    @hidden
-    action dump_new_threshold() {
-        dump_new_threshold_regact.execute(afd_md.vlink_id);
-    }
-    @hidden
-    table dump_or_grab_new_threshold {
-        key = {
-            afd_md.is_worker : exact;
-        }
-        actions = {
-            dump_new_threshold;
-            grab_new_threshold;
-        }
-        const entries = {
-            0 : dump_new_threshold();
-            1 : grab_new_threshold();
-        }
-    size = 2;
-    }
-
     InterpolateFairRate() interpolate;
     apply {
-        if (afd_md.is_worker == 0) {
             rate_tbl.apply();
             rate_lo_tbl.apply();
             rate_hi_tbl.apply();
@@ -335,10 +276,5 @@ control ThresholdInterpolator(inout afd_metadata_t afd_md) {
                 interpolate.apply(interp_numerator, interp_denominator, afd_md.threshold,
                                   afd_md.candidate_delta_pow, afd_md.new_threshold, interp_op); 
             } 
-        }
-
-        dump_or_grab_new_threshold.apply();
-        // (maybe save recirculation logic for main.p4?)
-        // Recirculate the new fair rate threshold and the lo/hi candidates to all the ingress pipelines
     }
 }

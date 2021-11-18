@@ -1,5 +1,7 @@
 #!/bin/sh
 
+./gen_include_files.py
+
 bf-p4c --Wdisable=uninitialized_use afd.p4
 
 if [ -n "$SDE_INSTALL" ]; then

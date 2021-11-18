@@ -10,7 +10,7 @@ struct drop_prob_pair_t {
 }
 
 control RateEnforcer(inout afd_metadata_t afd_md,
-                     inout bit<1> drop_flag) {
+                     out bit<1> drop_flag) {
     /* This control block sets the drop flag with probability 1 - min(1, enforced_rate / measured_rate).
         Steps:
         - Approximate measured_rate, threshold_lo, threshold, and threshold_hi as i, j_lo, j, j_hi
@@ -306,46 +306,26 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     /* --------------------------------------------------------------------------------------
      * Approximate the fair rates and measured rate as narrower integers for the lookup table
      * -------------------------------------------------------------------------------------- */
-    // TODO: rshift action for every value in [0, 24]
-	action rshift_8() {
-        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 8);
-        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 8);
-        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 8);
-        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 8);
+#include "actions_and_entries/shift_measured_rate/action_defs.p4inc"
+    /* Include actions of the form:
+	action rshift_x() {
+        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> x);
+        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> x);
+        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> x);
+        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> x);
 	}
-	action rshift_4() {
-        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 4);
-        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 4);
-        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 4);
-        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 4);
-	}
-	action rshift_2() {
-        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 2);
-        threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 2);
-        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 2);
-        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 2);
-	}
-	action rshift_0() {
-        threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo);
-        threshold_shifted     = (shifted_rate_t) (afd_md.threshold);
-        threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi);
-        measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate);
-	}
+    */
 	table shift_measured_rate {
 		key = {
             afd_md.measured_rate: ternary;
         }
 		actions = {
-            // TODO
-            rshift_8;
-            rshift_4;
-            rshift_2;
-            rshift_0;
+#include "actions_and_entries/shift_measured_rate/action_list.p4inc"
         }
 		default_action = rshift_0();
-        //const entries = {
-            // TODO
-        //}
+        const entries = {
+#include "actions_and_entries/shift_measured_rate/const_entries.p4inc"
+        }
         size  = 32;
 	}
     /* --------------------------------------------------------------------------------------
@@ -370,6 +350,9 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
 		default_action=load_drop_prob_act(0);
         size = DROP_PROB_LOOKUP_TBL_SIZE;
+        const entries = {
+#include "actions_and_entries/load_drop_prob/const_entries.p4inc"
+        }
 	}
     // Grab lo drop probability
     @hidden
@@ -387,6 +370,9 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
 		default_action = load_drop_prob_lo_act(0);
         size = DROP_PROB_LOOKUP_TBL_SIZE;
+        const entries = {
+#include "actions_and_entries/load_drop_prob/const_entries_lo.p4inc"
+        }
 	}
     // Grab hi drop probability
     @hidden
@@ -404,6 +390,9 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
 		default_action=load_drop_prob_hi_act(0);
         size = DROP_PROB_LOOKUP_TBL_SIZE;
+        const entries = {
+#include "actions_and_entries/load_drop_prob/const_entries_hi.p4inc"
+        }
 	}
 
 	apply {
