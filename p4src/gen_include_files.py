@@ -140,7 +140,7 @@ def gen_files__drop_prob_lookup():
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
     entryf = "({:>3}, {:>3}) : load_drop_prob{}_act({:>3});\n"
     for suffix in ["", "_lo", "_hi"]:
-        with open(dir_drop_probability + "const_entries" + suffix + ".p4inc", 'w') as fp:
+        with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
             for denominator in range(1 << (drop_rate_input_precision - 1), 1 << drop_rate_input_precision):
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
@@ -156,7 +156,7 @@ def gen_files__approx_division_lookup():
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
     entryf = "({:>3}, {:>3}) : load_division_result({:>3}, {:>3});\n"
     minimum_interp_lookup_entry = 2 ** -16
-    with open(dir_approx_division + fname_const_entries, 'w') as fp:
+    with open(dir_name + fname_const_entries, 'w') as fp:
         for denominator in range(1 << (interp_input_precision - 1), 1 << interp_input_precision):
             for numerator in range(denominator + 1):
                 quotient = (numerator + 0.5) / (denominator + 0.5)
