@@ -86,21 +86,21 @@ control SwitchEgress(
     };
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
         void apply(inout byterate_t stored) {
-            stored = afd_md.new_threshold;
+            stored = eg_md.afd.new_threshold;
         }
     };
     @hidden
     action grab_new_threshold() {
-        afd_md.new_threshold = grab_new_threshold_regact.execute(afd_md.vlink_id);
+        eg_md.afd.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
     @hidden
     action dump_new_threshold() {
-        dump_new_threshold_regact.execute(afd_md.vlink_id);
+        dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
     @hidden
     table dump_or_grab_new_threshold {
         key = {
-            afd_md.is_worker : exact;
+            eg_md.afd.is_worker : exact;
         }
         actions = {
             dump_new_threshold;
@@ -116,13 +116,18 @@ control SwitchEgress(
     apply {
         // Choose a new threshold
         if (eg_md.afd.is_worker == 0) {
-            threshold_interpolator.apply(eg_md.afd);
+            threshold_interpolator.apply(eg_md.afd.scaled_pkt_len, eg_md.afd.vlink_id,
+                                         eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
+                                         eg_md.afd.threshold,
+                                         eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
+                                         eg_md.afd.candidate_delta_pow,
+                                         eg_md.afd.new_threshold);
         }
         // If normal packet, save the new threshold. If a worker packet, load the new one
         dump_or_grab_new_threshold.apply();
 
         if (eg_md.afd.is_worker == 1) {
-            // TODO: recirculate afd_md.new_threshold to every ingress pipe
+            // TODO: recirculate eg_md.afd.new_threshold to every ingress pipe
         }
     }
 }

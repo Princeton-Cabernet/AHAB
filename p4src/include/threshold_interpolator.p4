@@ -40,8 +40,8 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         key = { denominator : ternary; }
         actions = {
 #include "actions_and_entries/shift_lookup_input/action_list.p4inc"
+            input_rshift_none;
         }
-        default_action = input_rshift_0();
         size = 32;
         const entries = {
 #include "actions_and_entries/shift_lookup_input/const_entries.p4inc"
@@ -129,12 +129,12 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
 
 
 // Main for this file
-control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t vlink_id, 
-                              in bytecount_t bytes_sent_lo, bytecount_t bytes_sent_hi,
+control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index_t vlink_id, 
+                              in bytecount_t bytes_sent_lo, in bytecount_t bytes_sent_hi,
                               in byterate_t threshold, 
                               in byterate_t threshold_lo, in byterate_t threshold_hi,
                               in exponent_t candidate_delta_pow,
-                              out byterate_t new_threshold,) {
+                              out byterate_t new_threshold) {
 
     // current_rate_lpf is the true transmitted bitrate
     // lo_ and hi_ are bitrates achieved by simulating lower and higher drop rates
@@ -154,7 +154,7 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t v
     bit<1> dummy_bit = 0;
     @hidden
     action rate_act() {
-        vlink_rate = (byterate_t) current_rate_lpf.execute(afd_md.scaled_pkt_len, afd_md.vlink_id);
+        vlink_rate = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
     }
     @hidden
     table rate_tbl {
@@ -165,7 +165,7 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t v
     }
     @hidden
     action rate_lo_act() {
-        vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(afd_md.bytes_sent_lo, afd_md.vlink_id);
+        vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(bytes_sent_lo, vlink_id);
     }
     @hidden
     table rate_lo_tbl {
@@ -176,7 +176,7 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t v
     }
     @hidden
     action rate_hi_act() {
-        vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(afd_md.bytes_sent_hi, afd_md.vlink_id);
+        vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(bytes_sent_hi, vlink_id);
     }
     @hidden
     table rate_hi_tbl {
@@ -207,17 +207,17 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t v
     @hidden
     action choose_middle_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.new_threshold = afd_md.threshold;
+        new_threshold = threshold;
     }
     @hidden
     action choose_low_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.new_threshold = afd_md.threshold_lo;
+        new_threshold = threshold_lo;
     }
     @hidden
     action choose_high_candidate() {
         interp_op = InterpolationOp.NONE;
-        afd_md.new_threshold = afd_md.threshold_hi;
+        new_threshold = threshold_hi;
     }
 
     
@@ -266,15 +266,11 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index__t v
             drate = vlink_rate - DESIRED_VLINK_RATE;
             drate_lo = vlink_rate_lo - DESIRED_VLINK_RATE;
             drate_hi = vlink_rate_hi - DESIRED_VLINK_RATE;
-            
-            // Check if it is time to do some work
-            // TODO: move worker generation logic to a separate module
-            choose_to_work_tbl.apply();
-            // If it is time, interpolate the new fair rate threshold
+            // Interpolate the new fair rate threshold
             choose_interpolation_action.apply();
             if (interp_op != InterpolationOp.NONE) {
-                interpolate.apply(interp_numerator, interp_denominator, afd_md.threshold,
-                                  afd_md.candidate_delta_pow, afd_md.new_threshold, interp_op); 
+                interpolate.apply(interp_numerator, interp_denominator, threshold,
+                                  candidate_delta_pow, new_threshold, interp_op); 
             } 
     }
 }
