@@ -56,29 +56,55 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
      *     t_new = div_result_mantissa << x;
      * }
      */
+#include "actions_and_entries/lshift_lookup_output/action_defs.p4inc"
     @hidden
-    action output_too_small() {
-        // Call this action if div_result_exponent is negative
-        t_new = 0;
-    }
-#include "actions_and_entries/shift_lookup_output/action_defs.p4inc"
-    @hidden
-    table shift_lookup_output {
+    table lshift_lookup_output {
         key = { div_result_exponent : exact; }
         actions = {
-#include "actions_and_entries/shift_lookup_output/action_list.p4inc"
+#include "actions_and_entries/lshift_lookup_output/action_list.p4inc"
             output_too_small;
         }
         default_action = output_too_small;
         size = 32;
         const entries = {
-#include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
+#include "actions_and_entries/lshift_lookup_output/const_entries.p4inc"
         }
     }
 
-    action load_division_result(byterate_t mantissa, exponent_t exponent) {
+
+    /*
+     * The following includes will contain actions of the form
+     * @hidden
+     * action output_rshift_x() {
+     *     t_new = div_result_mantissa >> x;
+     * }
+     */
+    @hidden
+    action output_too_small() {
+        // Call this action if div_result_mantissa would be rightshifted to oblivion
+        t_new = 0;
+    }
+#include "actions_and_entries/rshift_lookup_output/action_defs.p4inc"
+    @hidden
+    table lshift_lookup_output {
+        key = { div_result_exponent : exact; }
+        actions = {
+#include "actions_and_entries/rshift_lookup_output/action_list.p4inc"
+            output_too_small;
+        }
+        default_action = output_too_small;
+        size = 8;
+        const entries = {
+#include "actions_and_entries/rshift_lookup_output/const_entries.p4inc"
+        }
+    }
+
+
+
+
+    action load_division_result(byterate_t mantissa, exponent_t neg_exponent) {
         div_result_mantissa = mantissa;
-        div_result_exponent = exponent + delta_t_log;
+        div_result_exponent = neg_exponent; // indirect subtraction, see apply block
     }
     table approx_division_lookup {
         key={
@@ -118,10 +144,19 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
     }
 
 
-    apply{
+    apply {
         shift_lookup_input.apply();
         approx_division_lookup.apply();
-        shift_lookup_output.apply();
+        // Two branches to avoid negatives
+        if (delta_t_log > div_result_exponent) {
+            div_result_exponent = delta_t_log - div_result_exponent;
+            lshift_lookup_output.apply();
+        }
+        else {
+            div_result_exponent = div_result_exponent - delta_t_log;
+            rshift_lookup_output.apply();
+        }
+
         final_interpolation_result.apply();
     }
 }

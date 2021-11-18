@@ -1,0 +1,36 @@
+@hidden
+action output_rshift_0() {
+    t_new = div_result_mantissa >> 0;
+}
+@hidden
+action output_rshift_1() {
+    t_new = div_result_mantissa >> 1;
+}
+@hidden
+action output_rshift_2() {
+    t_new = div_result_mantissa >> 2;
+}
+@hidden
+action output_rshift_3() {
+    t_new = div_result_mantissa >> 3;
+}
+@hidden
+action output_rshift_4() {
+    t_new = div_result_mantissa >> 4;
+}
+@hidden
+action output_rshift_5() {
+    t_new = div_result_mantissa >> 5;
+}
+@hidden
+action output_rshift_6() {
+    t_new = div_result_mantissa >> 6;
+}
+@hidden
+action output_rshift_7() {
+    t_new = div_result_mantissa >> 7;
+}
+@hidden
+action output_rshift_8() {
+    t_new = div_result_mantissa >> 8;
+}

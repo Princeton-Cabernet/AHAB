@@ -11,7 +11,7 @@ typedef bit<byterate_t_width> byterate_t;
 typedef bit<8> epoch_t;
 typedef bit<16> vlink_index_t;
 
-typedef int<8> exponent_t;
+typedef bit<8> exponent_t;
 
 
 // Desired scaled bytes per second for each vlink (scaled bytes is bytes divided by vlink weight)

@@ -15,7 +15,8 @@ fname_actiondefs = "action_defs.p4inc"
 fname_const_entries = "const_entries.p4inc"
 
 dir_shift_lookup_input = "shift_lookup_input/"
-dir_shift_lookup_output = "shift_lookup_output/"
+dir_lshift_lookup_output = "lshift_lookup_output/"
+dir_rshift_lookup_output = "rshift_lookup_output/"
 dir_shift_measured_rate = "shift_measured_rate/"
 dir_drop_probability = "load_drop_prob/"
 dir_approx_division = "approx_division_lookup/"
@@ -74,16 +75,41 @@ def gen_files__shift_lookup_input():
             fp.write("{} : {}();\n".format(match_key, action_string))
 
 
-def gen_files__shift_lookup_output():
+def gen_files__lshift_lookup_output():
     """
-    Table shift_lookup_output that computes the new fair rate threshold
+    Table lshift_lookup_output that computes the new fair rate threshold
     """
     max_shift = bitwidth_of_byterate_t - interp_output_precision - 1
-    min_shift = 0
+    min_shift = 1
     action_namef = "output_lshift_{}"
     action_bodyf = "    t_new = div_result_mantissa << {};"
 
-    dir_name = base_dir + dir_shift_lookup_output
+    dir_name = base_dir + dir_lshift_lookup_output
+    os.makedirs(os.path.dirname(dir_name), exist_ok=True)
+
+    with open(dir_name + fname_actiondefs, 'w') as fp:
+        for shift in range(min_shift, max_shift+1):
+            fp.write(gen_actiondef(action_namef, action_bodyf, shift))
+
+    with open(dir_name + fname_actionlist, 'w') as fp:
+        for shift in range(min_shift, max_shift+1):
+            fp.write(action_namef.format(shift) + ";\n")
+
+    with open(dir_name + fname_const_entries, 'w') as fp:
+        for shift in range(min_shift, max_shift+1):
+            fp.write("{} : {}();\n".format(str(shift), action_namef.format(shift)))
+
+
+def gen_files__rshift_lookup_output():
+    """
+    Table rshift_lookup_output that computes the new fair rate threshold
+    """
+    max_shift = interp_output_precision
+    min_shift = 0
+    action_namef = "output_rshift_{}"
+    action_bodyf = "    t_new = div_result_mantissa >> {};"
+
+    dir_name = base_dir + dir_rshift_lookup_output
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
 
     with open(dir_name + fname_actiondefs, 'w') as fp:
@@ -166,16 +192,18 @@ def gen_files__approx_division_lookup():
                     exponent = 0
                     mantissa = 0
                 else:
+                    # TODO: is this exponent calculation right? should interp_output_precision be here?
                     exponent = math.floor(math.log(quotient, 2)) - interp_output_precision + 1
                     mantissa = round(quotient * 2**(-exponent))
                 if mantissa >= (1 << interp_output_precision):
                     print("WARNING: mantissa too large when dividing {} and {}".format(numerator, denominator))
-                fp.write(entryf.format(numerator, denominator, mantissa, exponent))
+                fp.write(entryf.format(numerator, denominator, mantissa, -exponent))
 
 
 def main():
     gen_files__shift_lookup_input()
-    gen_files__shift_lookup_output()
+    gen_files__lshift_lookup_output()
+    gen_files__rshift_lookup_output()
     gen_files__shift_measured_rate()
     gen_files__drop_prob_lookup()
     gen_files__approx_division_lookup()

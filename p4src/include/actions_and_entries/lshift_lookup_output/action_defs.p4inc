@@ -1,8 +1,4 @@
 @hidden
-action output_lshift_0() {
-    t_new = div_result_mantissa << 0;
-}
-@hidden
 action output_lshift_1() {
     t_new = div_result_mantissa << 1;
 }
