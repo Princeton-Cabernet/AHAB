@@ -62,9 +62,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         key = { div_result_exponent : exact; }
         actions = {
 #include "actions_and_entries/lshift_lookup_output/action_list.p4inc"
-            output_too_small;
         }
-        default_action = output_too_small;
         size = 32;
         const entries = {
 #include "actions_and_entries/lshift_lookup_output/const_entries.p4inc"
@@ -86,7 +84,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
     }
 #include "actions_and_entries/rshift_lookup_output/action_defs.p4inc"
     @hidden
-    table lshift_lookup_output {
+    table rshift_lookup_output {
         key = { div_result_exponent : exact; }
         actions = {
 #include "actions_and_entries/rshift_lookup_output/action_list.p4inc"
