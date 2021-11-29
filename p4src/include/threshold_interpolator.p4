@@ -90,7 +90,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
 #include "actions_and_entries/rshift_lookup_output/action_list.p4inc"
             output_too_small;
         }
-        default_action = output_too_small;
+        default_action = output_too_small();
         size = 8;
         const entries = {
 #include "actions_and_entries/rshift_lookup_output/const_entries.p4inc"

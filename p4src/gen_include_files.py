@@ -23,7 +23,7 @@ dir_approx_division = "approx_division_lookup/"
 
 
 def gen_actiondef(action_namef: str, action_bodyf: str, shiftnum: int) -> str:
-    stringf = "".join(["@hidden\n", "action ", action_namef, "() {{\n", action_bodyf, "\n}}\n"])
+    stringf = "".join(["\n", "action ", action_namef, "() {{\n", action_bodyf, "\n}}\n"])
     shiftnum_occurrences = stringf.count("{}")
     shiftnums = (shiftnum,) * shiftnum_occurrences
     return stringf.format(*shiftnums)
