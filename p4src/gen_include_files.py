@@ -200,6 +200,9 @@ def gen_files__approx_division_lookup():
                 fp.write(entryf.format(numerator, denominator, mantissa, -exponent))
 
 
+# TODO: add function for generating a file of threshold delta lookup const entries, instead of having them inline
+
+
 def main():
     gen_files__shift_lookup_input()
     gen_files__lshift_lookup_output()
