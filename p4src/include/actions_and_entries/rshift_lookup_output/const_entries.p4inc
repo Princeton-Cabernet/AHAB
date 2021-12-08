@@ -1,9 +1,0 @@
-0 : output_rshift_0();
-1 : output_rshift_1();
-2 : output_rshift_2();
-3 : output_rshift_3();
-4 : output_rshift_4();
-5 : output_rshift_5();
-6 : output_rshift_6();
-7 : output_rshift_7();
-8 : output_rshift_8();

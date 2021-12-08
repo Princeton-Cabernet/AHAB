@@ -1,92 +1,128 @@
-@hidden
+
 action output_lshift_1() {
     t_new = div_result_mantissa << 1;
 }
-@hidden
+
 action output_lshift_2() {
     t_new = div_result_mantissa << 2;
 }
-@hidden
+
 action output_lshift_3() {
     t_new = div_result_mantissa << 3;
 }
-@hidden
+
 action output_lshift_4() {
     t_new = div_result_mantissa << 4;
 }
-@hidden
+
 action output_lshift_5() {
     t_new = div_result_mantissa << 5;
 }
-@hidden
+
 action output_lshift_6() {
     t_new = div_result_mantissa << 6;
 }
-@hidden
+
 action output_lshift_7() {
     t_new = div_result_mantissa << 7;
 }
-@hidden
+
 action output_lshift_8() {
     t_new = div_result_mantissa << 8;
 }
-@hidden
+
 action output_lshift_9() {
     t_new = div_result_mantissa << 9;
 }
-@hidden
+
 action output_lshift_10() {
     t_new = div_result_mantissa << 10;
 }
-@hidden
+
 action output_lshift_11() {
     t_new = div_result_mantissa << 11;
 }
-@hidden
+
 action output_lshift_12() {
     t_new = div_result_mantissa << 12;
 }
-@hidden
+
 action output_lshift_13() {
     t_new = div_result_mantissa << 13;
 }
-@hidden
+
 action output_lshift_14() {
     t_new = div_result_mantissa << 14;
 }
-@hidden
+
 action output_lshift_15() {
     t_new = div_result_mantissa << 15;
 }
-@hidden
+
 action output_lshift_16() {
     t_new = div_result_mantissa << 16;
 }
-@hidden
+
 action output_lshift_17() {
     t_new = div_result_mantissa << 17;
 }
-@hidden
+
 action output_lshift_18() {
     t_new = div_result_mantissa << 18;
 }
-@hidden
+
 action output_lshift_19() {
     t_new = div_result_mantissa << 19;
 }
-@hidden
+
 action output_lshift_20() {
     t_new = div_result_mantissa << 20;
 }
-@hidden
+
 action output_lshift_21() {
     t_new = div_result_mantissa << 21;
 }
-@hidden
+
 action output_lshift_22() {
     t_new = div_result_mantissa << 22;
 }
-@hidden
+
 action output_lshift_23() {
     t_new = div_result_mantissa << 23;
+}
+
+action output_rshift_0() {
+    t_new = div_result_mantissa >> 0;
+}
+
+action output_rshift_1() {
+    t_new = div_result_mantissa >> 1;
+}
+
+action output_rshift_2() {
+    t_new = div_result_mantissa >> 2;
+}
+
+action output_rshift_3() {
+    t_new = div_result_mantissa >> 3;
+}
+
+action output_rshift_4() {
+    t_new = div_result_mantissa >> 4;
+}
+
+action output_rshift_5() {
+    t_new = div_result_mantissa >> 5;
+}
+
+action output_rshift_6() {
+    t_new = div_result_mantissa >> 6;
+}
+
+action output_rshift_7() {
+    t_new = div_result_mantissa >> 7;
+}
+
+action output_rshift_8() {
+    t_new = div_result_mantissa >> 8;
 }

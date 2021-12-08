@@ -15,8 +15,7 @@ fname_actiondefs = "action_defs.p4inc"
 fname_const_entries = "const_entries.p4inc"
 
 dir_shift_lookup_input = "shift_lookup_input/"
-dir_lshift_lookup_output = "lshift_lookup_output/"
-dir_rshift_lookup_output = "rshift_lookup_output/"
+dir_shift_lookup_output = "shift_lookup_output/"
 dir_shift_measured_rate = "shift_measured_rate/"
 dir_drop_probability = "load_drop_prob/"
 dir_approx_division = "approx_division_lookup/"
@@ -75,54 +74,46 @@ def gen_files__shift_lookup_input():
             fp.write("{} : {}();\n".format(match_key, action_string))
 
 
-def gen_files__lshift_lookup_output():
+def gen_files__shift_lookup_output():
     """
-    Table lshift_lookup_output that computes the new fair rate threshold
+    Table shift_lookup_output that computes the new fair rate threshold
     """
-    max_shift = bitwidth_of_byterate_t - interp_output_precision - 1
-    min_shift = 1
-    action_namef = "output_lshift_{}"
-    action_bodyf = "    t_new = div_result_mantissa << {};"
+    max_lshift = bitwidth_of_byterate_t - interp_output_precision - 1
+    min_lshift = 1
+    action_l_namef = "output_lshift_{}"
+    action_l_bodyf = "    t_new = div_result_mantissa << {};"
 
-    dir_name = base_dir + dir_lshift_lookup_output
+    max_rshift = interp_output_precision
+    min_rshift = 0
+    action_r_namef = "output_rshift_{}"
+    action_r_bodyf = "    t_new = div_result_mantissa >> {};"
+
+    dir_name = base_dir + dir_shift_lookup_output
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
 
     with open(dir_name + fname_actiondefs, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write(gen_actiondef(action_namef, action_bodyf, shift))
+        for shift in range(min_lshift, max_lshift+1):
+            fp.write(gen_actiondef(action_l_namef, action_l_bodyf, shift))
+        for shift in range(min_rshift, max_rshift+1):
+            fp.write(gen_actiondef(action_r_namef, action_r_bodyf, shift))
 
     with open(dir_name + fname_actionlist, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write(action_namef.format(shift) + ";\n")
+        for shift in range(min_lshift, max_lshift+1):
+            fp.write(action_l_namef.format(shift) + ";\n")
+        for shift in range(min_rshift, max_rshift+1):
+            fp.write(action_r_namef.format(shift) + ";\n")
 
     with open(dir_name + fname_const_entries, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write("{} : {}();\n".format(str(shift), action_namef.format(shift)))
-
-
-def gen_files__rshift_lookup_output():
-    """
-    Table rshift_lookup_output that computes the new fair rate threshold
-    """
-    max_shift = interp_output_precision
-    min_shift = 0
-    action_namef = "output_rshift_{}"
-    action_bodyf = "    t_new = div_result_mantissa >> {};"
-
-    dir_name = base_dir + dir_rshift_lookup_output
-    os.makedirs(os.path.dirname(dir_name), exist_ok=True)
-
-    with open(dir_name + fname_actiondefs, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write(gen_actiondef(action_namef, action_bodyf, shift))
-
-    with open(dir_name + fname_actionlist, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write(action_namef.format(shift) + ";\n")
-
-    with open(dir_name + fname_const_entries, 'w') as fp:
-        for shift in range(min_shift, max_shift+1):
-            fp.write("{} : {}();\n".format(str(shift), action_namef.format(shift)))
+        for delta_t_log in range(0, 32):
+            for div_result_exponent in range(0, 10):
+                exponent = delta_t_log - div_result_exponent
+                if exponent > 0:
+                    action_namef = action_l_namef
+                else:
+                    action_namef = action_r_namef
+                    exponent = -exponent
+                fp.write("({}, {}) : {}();\n".format(str(delta_t_log), str(div_result_exponent),
+                                                     action_namef.format(exponent)))
 
 
 def gen_files__shift_measured_rate():
@@ -205,8 +196,7 @@ def gen_files__approx_division_lookup():
 
 def main():
     gen_files__shift_lookup_input()
-    gen_files__lshift_lookup_output()
-    gen_files__rshift_lookup_output()
+    gen_files__shift_lookup_output()
     gen_files__shift_measured_rate()
     gen_files__drop_prob_lookup()
     gen_files__approx_division_lookup()

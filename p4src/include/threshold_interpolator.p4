@@ -49,26 +49,6 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         default_action = input_rshift_none();
     }
 
-    /*
-     * The following includes will contain actions of the form
-     * @hidden
-     * action output_lshift_x() {
-     *     t_new = div_result_mantissa << x;
-     * }
-     */
-#include "actions_and_entries/lshift_lookup_output/action_defs.p4inc"
-    @hidden
-    table lshift_lookup_output {
-        key = { div_result_exponent : exact; }
-        actions = {
-#include "actions_and_entries/lshift_lookup_output/action_list.p4inc"
-        }
-        size = 32;
-        const entries = {
-#include "actions_and_entries/lshift_lookup_output/const_entries.p4inc"
-        }
-    }
-
 
     /*
      * The following includes will contain actions of the form
@@ -76,28 +56,35 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
      * action output_rshift_x() {
      *     t_new = div_result_mantissa >> x;
      * }
+     * AND
+     * @hidden
+     * action output_lshift_x() {
+     *     t_new = div_result_mantissa << x;
+     * }
      */
+#include "actions_and_entries/shift_lookup_output/action_defs.p4inc"
     @hidden
     action output_too_small() {
         // Call this action if div_result_mantissa would be rightshifted to oblivion
         t_new = 0;
     }
-#include "actions_and_entries/rshift_lookup_output/action_defs.p4inc"
-    @hidden
-    table rshift_lookup_output {
-        key = { div_result_exponent : exact; }
+
+    table shift_lookup_output {
+        // Do subtraction and shifting simultaenously via lookup table to avoid negatives and branching
+        // Also saves 1-2 stages but thats not important yet
+        key = {
+            delta_t_log : exact;
+            div_result_exponent : exact;
+        }
         actions = {
-#include "actions_and_entries/rshift_lookup_output/action_list.p4inc"
+#include "actions_and_entries/shift_lookup_output/action_list.p4inc"
             output_too_small;
         }
         default_action = output_too_small();
-        size = 8;
         const entries = {
-#include "actions_and_entries/rshift_lookup_output/const_entries.p4inc"
+#include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
         }
     }
-
-
 
 
     action load_division_result(byterate_t mantissa, exponent_t neg_exponent) {
@@ -145,16 +132,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
     apply {
         shift_lookup_input.apply();
         approx_division_lookup.apply();
-        // Two branches to avoid negatives
-        if (delta_t_log > div_result_exponent) {
-            div_result_exponent = delta_t_log - div_result_exponent;
-            lshift_lookup_output.apply();
-        }
-        else {
-            div_result_exponent = div_result_exponent - delta_t_log;
-            rshift_lookup_output.apply();
-        }
-
+        shift_lookup_output.apply();
         final_interpolation_result.apply();
     }
 }
