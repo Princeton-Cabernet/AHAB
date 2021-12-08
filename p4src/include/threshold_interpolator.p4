@@ -50,6 +50,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
     }
 
 
+    exponent_t remaining_lshift;
     /*
      * The following includes will contain actions of the form
      * @hidden
@@ -63,7 +64,6 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
      * }
      */
 #include "actions_and_entries/shift_lookup_output/action_defs.p4inc"
-    @hidden
     action output_too_small() {
         // Call this action if div_result_mantissa would be rightshifted to oblivion
         t_new = 0;
@@ -83,6 +83,19 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         default_action = output_too_small();
         const entries = {
 #include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
+        }
+    }
+
+#include "actions_and_entries/shift_lookup_output_stage2/action_defs.p4inc"
+    table shift_lookup_output_stage2 {
+        key = {
+            remaining_lshift: exact;
+        }
+        actions = {
+#include "actions_and_entries/shift_lookup_output_stage2/action_list.p4inc"
+        }
+        const entries = {
+#include "actions_and_entries/shift_lookup_output_stage2/const_entries.p4inc"
         }
     }
 
@@ -133,6 +146,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         shift_lookup_input.apply();
         approx_division_lookup.apply();
         shift_lookup_output.apply();
+        shift_lookup_output_stage2.apply();
         final_interpolation_result.apply();
     }
 }
