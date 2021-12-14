@@ -233,7 +233,6 @@ def main5():
 
 
 def plot_lookup_mult_error():
-    table = ApproxMultiplicationTable(num_significant_bits=5)
     #mult_factor = 15 / 16
     mult_factor = 11
     units = [ConstMultMathUnit(mult_factor=mult_factor, name="MultUnit")]
@@ -245,4 +244,6 @@ def plot_lookup_mult_error():
 
 if __name__ == "__main__":
     #plot_multunit_error()
-    main5()
+    plot_squareunit_error()
+    #plot_sqrtunit_error()
+    #main5()
