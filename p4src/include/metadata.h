@@ -22,7 +22,7 @@ struct afd_metadata_t {
 
     byterate_t              new_threshold;
     bit<1>                  is_worker;
-    bit<1>                  is_congested;
+    bit<1>                  congestion_flag;
     byterate_t              max_rate;
 }
 

@@ -84,18 +84,19 @@ control SwitchEgress(
     MaxRateEstimator() max_rate_estimator;
     LinkRateTracker() link_rate_tracker;
 
-    bytrate_t vlink_rate;
-    bytrate_t vlink_rate_lo;
-    bytrate_t vlink_rate_hi;
-    bytrate_t vlink_demand;
+    byterate_t vlink_rate;
+    byterate_t vlink_rate_lo;
+    byterate_t vlink_rate_hi;
+    byterate_t vlink_demand;
 
 
     action load_vtrunk_fair_rate(byterate_t vtrunk_fair_rate) {
-        eg_md.afd.vtrunk_threshold = vtrunk_threshold;
+        eg_md.afd.vtrunk_threshold = vtrunk_fair_rate;
     }
     table vtrunk_lookup {
         key = {
-            vtrunk_id : exact;
+            // TODO: assign this in the vlink lookup stage in ingress
+            eg_md.afd.vtrunk_id : exact;
         }
         actions = {
             load_vtrunk_fair_rate;
@@ -142,13 +143,14 @@ control SwitchEgress(
     byterate_t demand_delta; 
     @hidden
     Register<bit<1>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) dump_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
-            if (demand_delta >= BYTERATE_T_SIGN_BIT) {
-                stored_flag = 1;
-            } else {
-                stored_flag = 0;
-            }
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) set_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag) {
+	    stored_flag = 1;
+        }
+    };
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) unset_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag) {
+	    stored_flag = 0;
         }
     };
     RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) grab_congestion_flag_regact = {
@@ -157,27 +159,37 @@ control SwitchEgress(
         }
     };
     @hidden
-    action dump_congestion_flag() {
-        dump_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    action set_congestion_flag() {
+        set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    @hidden
+    action unset_congestion_flag() {
+        unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     @hidden
     action grab_congestion_flag() {
         eg_md.afd.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
+#define TERNARY_DONT_CARE 32w0 &&& 32w0
     @hidden
     table dump_or_grab_congestion_flag {
         key = {
             eg_md.afd.is_worker : exact;
+            demand_delta : ternary;
         }
         actions = {
-            dump_congestion_flag;
+            set_congestion_flag;
+            unset_congestion_flag;
             grab_congestion_flag;
         }
         const entries = {
-            0 : dump_congestion_flag();
-            1 : grab_congestion_flag();
+            (0, TERNARY_NEG_CHECK) : set_congestion_flag();
+            (0, TERNARY_POS_CHECK) : unset_congestion_flag();
+            (1, TERNARY_DONT_CARE) : grab_congestion_flag();
         }
-        size = 2;
+        size = 3;
     }
 
 
@@ -198,10 +210,11 @@ control SwitchEgress(
                                      eg_md.afd.measured_rate,
                                      eg_md.afd.is_worker,
                                      eg_md.afd.max_rate);
-            threshold_interpolator.apply(eg_md.afd.scaled_pkt_len, eg_md.afd.vlink_id,
-                                         eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
-                                         eg_md.afd.vtrunk_threshold, eg_md.afd.threshold,
-                                         eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
+            threshold_interpolator.apply(vlink_rate, vlink_rate_lo, vlink_rate_hi,
+                                         eg_md.afd.vtrunk_threshold, 
+                                         eg_md.afd.threshold,
+                                         eg_md.afd.threshold_lo, 
+                                         eg_md.afd.threshold_hi,
                                          eg_md.afd.candidate_delta_pow,
                                          eg_md.afd.new_threshold);
         }
