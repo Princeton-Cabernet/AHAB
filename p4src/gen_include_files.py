@@ -123,6 +123,8 @@ def gen_files__shift_lookup_output():
                     second_shift = exponent - first_shift
                     action_name = action_l_namef.format(first_shift)
                     action_param = str(second_shift)
+                elif exponent <= 8:
+                    continue  # result will be too small
                 else:
                     action_name = action_r_namef.format(-exponent)
                 fp.write("({}, {}) : {}({});\n".format(str(delta_t_log), str(div_result_exponent),
