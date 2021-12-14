@@ -6,19 +6,24 @@
 struct afd_metadata_t {
     epoch_t                 epoch;
     vlink_index_t           vlink_id;
-    bytecount_t             scaled_pkt_len;
+    vtrunk_index_t          vtrunk_id;
     byterate_t              measured_rate;
     byterate_t              threshold;
     byterate_t              threshold_lo;
     byterate_t              threshold_hi;
     byterate_t              candidate_delta;      // 2**k
     exponent_t              candidate_delta_pow;  // k
+    byterate_t              vtrunk_threshold;
 
-    bytecount_t             bytes_sent_lo;
-    bytecount_t             bytes_sent_hi;
+    bytecount_t             scaled_pkt_len;
+    bytecount_t             bytes_sent_lo;   // packet size for lo threshold simulation
+    bytecount_t             bytes_sent_hi;   // packet size for hi threshold simulation
+    bytecount_t             bytes_sent_all;  // packet size for total demand simulation
 
     byterate_t              new_threshold;
     bit<1>                  is_worker;
+    bit<1>                  is_congested;
+    byterate_t              max_rate;
 }
 
 @pa_auto_init_metadata

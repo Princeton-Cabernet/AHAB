@@ -12,6 +12,8 @@
 #include "include/rate_estimator.p4"
 #include "include/rate_enforcer.p4"
 #include "include/threshold_interpolator.p4"
+#include "include/max_rate_estimator.p4"
+#include "include/link_rate_tracker.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -56,6 +58,9 @@ control SwitchIngress(
                              ig_md.dport,
                              ig_md.afd.scaled_pkt_len,
                              ig_md.afd.measured_rate);
+
+
+
         bit<1> afd_drop_flag;
         rate_enforcer.apply(ig_md.afd, afd_drop_flag);
         if (afd_drop_flag == 1) {
@@ -76,6 +81,27 @@ control SwitchEgress(
         inout egress_intrinsic_metadata_for_output_port_t eg_oport_md) {
 
     ThresholdInterpolator() threshold_interpolator;
+    MaxRateEstimator() max_rate_estimator;
+    LinkRateTracker() link_rate_tracker;
+
+    bytrate_t vlink_rate;
+    bytrate_t vlink_rate_lo;
+    bytrate_t vlink_rate_hi;
+    bytrate_t vlink_demand;
+
+
+    action load_vtrunk_fair_rate(byterate_t vtrunk_fair_rate) {
+        eg_md.afd.vtrunk_threshold = vtrunk_threshold;
+    }
+    table vtrunk_lookup {
+        key = {
+            vtrunk_id : exact;
+        }
+        actions = {
+            load_vtrunk_fair_rate;
+        }
+        size = NUM_VTRUNKS;
+    }
 
     @hidden
     Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
@@ -110,21 +136,83 @@ control SwitchEgress(
             0 : dump_new_threshold();
             1 : grab_new_threshold();
         }
-    size = 2;
+        size = 2;
     }
 
+    byterate_t demand_delta; 
+    @hidden
+    Register<bit<1>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) dump_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
+            if (demand_delta >= BYTERATE_T_SIGN_BIT) {
+                stored_flag = 1;
+            } else {
+                stored_flag = 0;
+            }
+        }
+    };
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) grab_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
+            returned_flag = stored_flag;
+        }
+    };
+    @hidden
+    action dump_congestion_flag() {
+        dump_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    @hidden
+    action grab_congestion_flag() {
+        eg_md.afd.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    @hidden
+    table dump_or_grab_congestion_flag {
+        key = {
+            eg_md.afd.is_worker : exact;
+        }
+        actions = {
+            dump_congestion_flag;
+            grab_congestion_flag;
+        }
+        const entries = {
+            0 : dump_congestion_flag();
+            1 : grab_congestion_flag();
+        }
+        size = 2;
+    }
+
+
     apply {
+        // TODO: check if current rate exceeds vtrunk's threshold, and set a congestion flag accordingly
         // Choose a new threshold
+        // TODO: differentiate between an end-of-window packet that triggers clones, and actual clones
+        // Two different kinds of workers
+        link_rate_tracker.apply(eg_md.afd.vlink_id,
+                                eg_md.afd.scaled_pkt_len, eg_md.afd.bytes_sent_all,
+                                eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
+                                vlink_rate, vlink_rate_lo, vlink_rate_hi, 
+                                vlink_demand);
         if (eg_md.afd.is_worker == 0) {
+            vtrunk_lookup.apply();
+            demand_delta = eg_md.afd.vtrunk_threshold - vlink_demand; 
+            max_rate_estimator.apply(eg_md.afd.vlink_id,
+                                     eg_md.afd.measured_rate,
+                                     eg_md.afd.is_worker,
+                                     eg_md.afd.max_rate);
             threshold_interpolator.apply(eg_md.afd.scaled_pkt_len, eg_md.afd.vlink_id,
                                          eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
-                                         eg_md.afd.threshold,
+                                         eg_md.afd.vtrunk_threshold, eg_md.afd.threshold,
                                          eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
                                          eg_md.afd.candidate_delta_pow,
                                          eg_md.afd.new_threshold);
         }
+        // If the highest rate seen recently is lower than the new threshold, lower the threshold to that rate
+        // This prevents the threshold from jumping to infinity during times of underutilization,
+        // which improves convergence rate.
+        // TODO: should we smooth this out?
+        eg_md.afd.new_threshold = min<byterate_t>(eg_md.afd.new_threshold, eg_md.afd.max_rate);
         // If normal packet, save the new threshold. If a worker packet, load the new one
         dump_or_grab_new_threshold.apply();
+        dump_or_grab_congestion_flag.apply();
 
         if (eg_md.afd.is_worker == 1) {
             // TODO: recirculate eg_md.afd.new_threshold to every ingress pipe

@@ -17,6 +17,8 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         - Three lookup tables map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
         - Compare lookup table output to an RNG value. If rng < val, mark to drop.
     */
+    // TODO: check congestion flag, only drop if its 1
+    // TODO: ensure candidates are not corrupted when only dropping during congestion
 
     Random<drop_prob_t>() rng;
     //drop_prob_t rng_output;
@@ -301,6 +303,43 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
         size = 4;
     }
+    @hidden
+    Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_all;
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_all) grab_all_bytes_regact = {
+        void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
+            bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
+            dumped_bytes = 0;
+        }
+    };
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_all) dump_all_bytes_regact = {
+        void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
+            dumped_bytes = dumped_bytes + afd_md.scaled_pkt_len;
+            bytes_sent = 0;
+        }
+    };
+    @hidden
+    action grab_all_bytes() {
+        afd_md.bytes_sent_all = grab_all_bytes_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    action dump_all_bytes() {
+        dump_all_bytes_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    table dump_or_grab_all_bytes {
+        key = {
+            drop_flag : exact;
+        }
+        actions = {
+            dump_all_bytes;
+            grab_all_bytes;
+        }
+        const entries = {
+            0: grab_all_bytes();
+            1 : dump_all_bytes();
+        }
+        size = 2;
+    }
 
 
     /* --------------------------------------------------------------------------------------
@@ -412,6 +451,7 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         // Drop off or pick up packet bytecounts to allow the lo/hi drop simulations to work around true dropping.
         dump_or_grab_lo_bytes.apply();
         dump_or_grab_hi_bytes.apply();
+        dump_or_grab_all_bytes.apply();
 	}
 }
 

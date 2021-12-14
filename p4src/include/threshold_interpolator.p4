@@ -141,7 +141,6 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         size = 2;
     }
 
-
     apply {
         shift_lookup_input.apply();
         approx_division_lookup.apply();
@@ -152,64 +151,21 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
 }
 
 
-
 // Main for this file
-control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index_t vlink_id, 
-                              in bytecount_t bytes_sent_lo, in bytecount_t bytes_sent_hi,
+control ThresholdInterpolator(in byterate_t vlink_rate,
+                              in byterate_t vlink_rate_lo,
+                              in byterate_t vlink_rate_hi,
+                              in byterate_t target_rate, 
                               in byterate_t threshold, 
-                              in byterate_t threshold_lo, in byterate_t threshold_hi,
+                              in byterate_t threshold_lo, 
+                              in byterate_t threshold_hi,
                               in exponent_t candidate_delta_pow,
                               out byterate_t new_threshold) {
-
-    // current_rate_lpf is the true transmitted bitrate
-    // lo_ and hi_ are bitrates achieved by simulating lower and higher drop rates
-    Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) current_rate_lpf;
-    Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) lo_rate_lpf;
-    Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) hi_rate_lpf;
-    // Output of the LPFs
-    byterate_t vlink_rate;
-    byterate_t vlink_rate_lo;
-    byterate_t vlink_rate_hi;
     
     // Difference between the three LPF outputs and the desired bitrate
     byterate_t drate;
     byterate_t drate_lo;
     byterate_t drate_hi;
-
-    bit<1> dummy_bit = 0;
-    @hidden
-    action rate_act() {
-        vlink_rate = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
-    }
-    @hidden
-    table rate_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_act; }
-        const entries = { 0 : rate_act(); }
-        size = 1;
-    }
-    @hidden
-    action rate_lo_act() {
-        vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(bytes_sent_lo, vlink_id);
-    }
-    @hidden
-    table rate_lo_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_lo_act; }
-        const entries = { 0 : rate_lo_act(); }
-        size = 1;
-    }
-    @hidden
-    action rate_hi_act() {
-        vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(bytes_sent_hi, vlink_id);
-    }
-    @hidden
-    table rate_hi_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_hi_act; }
-        const entries = { 0 : rate_hi_act(); }
-        size = 1;
-    }
 
 
     InterpolationOp interp_op;
@@ -220,13 +176,13 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index_t vl
     @hidden
     action set_interpolate_left() {
         interp_op = InterpolationOp.LEFT;
-        interp_numerator   = vlink_rate         - DESIRED_VLINK_RATE;
+        interp_numerator   = vlink_rate         - target_rate;
         interp_denominator = vlink_rate         - vlink_rate_lo;
     }
     @hidden
     action set_interpolate_right() {
         interp_op = InterpolationOp.RIGHT;
-        interp_numerator   = DESIRED_VLINK_RATE - vlink_rate;
+        interp_numerator   = target_rate        - vlink_rate;
         interp_denominator = vlink_rate_hi      - vlink_rate;
     }
     @hidden
@@ -247,8 +203,8 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index_t vl
 
     
     // Width of these values is sizeof(byterate_t)
-#define TERNARY_NEG_CHECK 32w0x70000000 &&& 32w0x70000000
-#define TERNARY_POS_CHECK 32w0 &&& 32w0x70000000
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
 #define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
 #define TERNARY_DONT_CARE 32w0 &&& 32w0
     @hidden
@@ -284,13 +240,9 @@ control ThresholdInterpolator(in bytecount_t scaled_pkt_len, in vlink_index_t vl
 
     InterpolateFairRate() interpolate;
     apply {
-            rate_tbl.apply();
-            rate_lo_tbl.apply();
-            rate_hi_tbl.apply();
-            // Get the slice's current rate, and the simulated rates based upon threshold_lo and threshold_hi
-            drate = vlink_rate - DESIRED_VLINK_RATE;
-            drate_lo = vlink_rate_lo - DESIRED_VLINK_RATE;
-            drate_hi = vlink_rate_hi - DESIRED_VLINK_RATE;
+            drate    = vlink_rate    - target_rate;
+            drate_lo = vlink_rate_lo - target_rate;
+            drate_hi = vlink_rate_hi - target_rate;
             // Interpolate the new fair rate threshold
             choose_interpolation_action.apply();
             if (interp_op != InterpolationOp.NONE) {
