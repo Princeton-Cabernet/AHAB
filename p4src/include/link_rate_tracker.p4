@@ -1,6 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control LinkRateTracker(in vlink_index_t vlink_id,
+control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
                         in bytecount_t scaled_pkt_len, in bytecount_t scaled_pkt_len_all,
                         in bytecount_t scaled_pkt_len_lo, in bytecount_t scaled_pkt_len_hi,
                         out byterate_t vlink_rate, out byterate_t vlink_rate_lo, out byterate_t vlink_rate_hi,
@@ -13,7 +13,7 @@ control LinkRateTracker(in vlink_index_t vlink_id,
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) hi_rate_lpf;
 
     // Per-vlink total demand (aka arrival rate)
-    // Per-vlink demand is read by the control plane and used to compute vtrunk_fair_rate
+    // Only read by the control plane and used to compute vtrunk_fair_rate
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) total_demand_lpf;
 
     bit<1> dummy_bit = 0;
@@ -24,9 +24,9 @@ control LinkRateTracker(in vlink_index_t vlink_id,
     }
     @hidden
     table rate_tbl {
-        key = { dummy_bit : exact; }
+        key = { drop_withheld : exact; }  // Only update the rate if a drop was not meant to happen
         actions = { rate_act; }
-        const entries = { 0 : rate_act(); }
+        const entries = { 1 : rate_act(); }
         size = 1;
     }
     // Track lo threshold sending rate

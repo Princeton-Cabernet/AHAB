@@ -225,9 +225,15 @@ control RateEnforcer(inout afd_metadata_t afd_md,
      * -------------------------------------------------------------------------------------- */
     @hidden
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_lo;
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) grab_lo_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) combine_lo_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
             bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
+            dumped_bytes = 0;
+        }
+    };
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_lo) grab_lo_bytes_regact = {
+        void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
+            bytes_sent = dumped_bytes;
             dumped_bytes = 0;
         }
     };
@@ -237,6 +243,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
             bytes_sent = 0;
         }
     };
+    @hidden
+    action combine_lo_bytes() {
+        afd_md.bytes_sent_lo = combine_lo_bytes_regact.execute(afd_md.vlink_id);
+    }
     @hidden
     action grab_lo_bytes() {
         afd_md.bytes_sent_lo = grab_lo_bytes_regact.execute(afd_md.vlink_id);
@@ -254,10 +264,11 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         actions = {
             dump_lo_bytes;
             grab_lo_bytes;
+            combine_lo_bytes;
         }
         const entries = {
             (1, 0) : dump_lo_bytes();
-            (0, 0) : grab_lo_bytes();
+            (0, 0) : combine_lo_bytes();
             (0, 1) : grab_lo_bytes();
             // (1,1) : no_action();
         }
@@ -265,9 +276,15 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     }
     @hidden
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) byte_store_hi;
-    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) grab_hi_bytes_regact = {
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) combine_hi_bytes_regact = {
         void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
             bytes_sent = dumped_bytes + afd_md.scaled_pkt_len;
+            dumped_bytes = 0;
+        }
+    };
+    RegisterAction<bytecount_t, vlink_index_t, bytecount_t>(byte_store_hi) grab_hi_bytes_regact = {
+        void apply(inout bytecount_t dumped_bytes, out bytecount_t bytes_sent) {
+            bytes_sent = dumped_bytes;
             dumped_bytes = 0;
         }
     };
@@ -278,6 +295,10 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         }
     };
     @hidden
+    action combine_hi_bytes() {
+        afd_md.bytes_sent_hi = combine_hi_bytes_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
     action grab_hi_bytes() {
         afd_md.bytes_sent_hi = grab_hi_bytes_regact.execute(afd_md.vlink_id);
     }
@@ -285,6 +306,8 @@ control RateEnforcer(inout afd_metadata_t afd_md,
     action dump_hi_bytes() {
         dump_hi_bytes_regact.execute(afd_md.vlink_id);
     }
+    // TODO: Do we need this? Given our current method for computing drop flags,
+    //       it will never be the case that mid drops but hi doesn't.
     @hidden
     table dump_or_grab_hi_bytes {
         key = {
@@ -294,10 +317,11 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         actions = {
             dump_hi_bytes;
             grab_hi_bytes;
+            combine_hi_bytes;
         }
         const entries = {
             (1, 0) : dump_hi_bytes();
-            (0, 0) : grab_hi_bytes();
+            (0, 0) : combine_hi_bytes();
             (0, 1) : grab_hi_bytes();
             // (1,1) : no_action();
         }
@@ -448,10 +472,17 @@ control RateEnforcer(inout afd_metadata_t afd_md,
         get_drop_flag.apply();
         get_drop_flag_lo.apply();
         get_drop_flag_hi.apply();
-        // Drop off or pick up packet bytecounts to allow the lo/hi drop simulations to work around true dropping.
-        dump_or_grab_lo_bytes.apply();
-        dump_or_grab_hi_bytes.apply();
-        dump_or_grab_all_bytes.apply();
+
+        // If congestion flag is false, dropping is disabled
+        if (afd_md.congestion_flag == 0) {
+            afd_md.drop_withheld = drop_flag;
+            drop_flag = 0;
+        } else {  // Dropping is enabled
+            // Deposit or pick up packet bytecounts to allow the lo/hi drop simulations to work around true dropping.
+            dump_or_grab_lo_bytes.apply();
+            dump_or_grab_hi_bytes.apply();
+            dump_or_grab_all_bytes.apply();
+        }
 	}
 }
 

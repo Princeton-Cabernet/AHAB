@@ -198,7 +198,7 @@ control SwitchEgress(
         // Choose a new threshold
         // TODO: differentiate between an end-of-window packet that triggers clones, and actual clones
         // Two different kinds of workers
-        link_rate_tracker.apply(eg_md.afd.vlink_id,
+        link_rate_tracker.apply(eg_md.afd.vlink_id, eg_md.afd.drop_withheld,
                                 eg_md.afd.scaled_pkt_len, eg_md.afd.bytes_sent_all,
                                 eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
                                 vlink_rate, vlink_rate_lo, vlink_rate_hi, 

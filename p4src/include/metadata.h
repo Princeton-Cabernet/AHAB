@@ -23,6 +23,7 @@ struct afd_metadata_t {
     byterate_t              new_threshold;
     bit<1>                  is_worker;
     bit<1>                  congestion_flag;
+    bit<1>                  drop_withheld;
     byterate_t              max_rate;
 }
 
