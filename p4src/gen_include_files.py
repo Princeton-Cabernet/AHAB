@@ -163,10 +163,10 @@ def gen_files__shift_measured_rate():
     max_shift = bitwidth_of_byterate_t - drop_rate_input_precision - 1
     min_shift = 0
     action_namef = "rshift_{}"
-    action_bodyf = "    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> {});\n" \
-                   "    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> {});\n" \
-                   "    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> {});\n" \
-                   "    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> {});"
+    action_bodyf = "    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> {});\n" \
+                   "    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> {});\n" \
+                   "    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> {});\n" \
+                   "    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> {});"
 
     dir_name = base_dir + dir_shift_measured_rate
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
@@ -196,7 +196,7 @@ def gen_files__drop_prob_lookup():
     dir_name = base_dir + dir_drop_probability
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
     entryf = "({:>3}, {:>3}) : load_drop_prob{}_act({:>3});\n"
-    for suffix in ["", "_lo", "_hi"]:
+    for suffix in ["_mid", "_lo", "_hi"]:
         with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
             for denominator in range(1 << (drop_rate_input_precision - 1), 1 << drop_rate_input_precision):
                 for numerator in range(denominator + 1):
