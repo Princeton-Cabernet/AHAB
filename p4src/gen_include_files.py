@@ -163,10 +163,10 @@ def gen_files__shift_measured_rate():
     max_shift = bitwidth_of_byterate_t - drop_rate_input_precision - 1
     min_shift = 0
     action_namef = "rshift_{}"
-    action_bodyf = "    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> {});\n" \
-                   "    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> {});\n" \
-                   "    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> {});\n" \
-                   "    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> {});"
+    action_bodyf = "    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> {});\n" \
+                   "    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> {});\n" \
+                   "    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> {});\n" \
+                   "    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> {});"
 
     dir_name = base_dir + dir_shift_measured_rate
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)

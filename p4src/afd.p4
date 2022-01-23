@@ -14,6 +14,7 @@
 #include "include/threshold_interpolator.p4"
 #include "include/max_rate_estimator.p4"
 #include "include/link_rate_tracker.p4"
+#include "include/byte_dumps.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -44,12 +45,14 @@ control SwitchIngress(
     VLinkLookup() vlink_lookup;
     RateEstimator() rate_estimator;
     RateEnforcer() rate_enforcer;
+    ByteDumps() byte_dumps;
 
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
 
         // this is regular workflow, not considering recirculation for now
+        // TODO: recirculation dumps new thresholds into vlink_lookup
         vlink_lookup.apply(hdr, ig_md.afd);
         rate_estimator.apply(hdr.ipv4.src_addr,
                              hdr.ipv4.dst_addr,
@@ -61,8 +64,33 @@ control SwitchIngress(
 
 
 
+        bit<1> afd_drop_flag_lo;
         bit<1> afd_drop_flag;
-        rate_enforcer.apply(ig_md.afd, afd_drop_flag);
+        bit<1> afd_drop_flag_hi;
+        rate_enforcer.apply(ig_md.afd.scaled_pkt_len,
+                            ig_md.afd.measured_rate,
+                            ig_md.afd.threshold_lo,
+                            ig_md.afd.threshold,
+                            ig_md.afd.threshold_hi,
+                            afd_drop_flag_lo,
+                            afd_drop_flag,
+                            afd_drop_flag_hi);
+        // If congestion flag is false, dropping is disabled
+        if (ig_md.afd.congestion_flag == 0) {
+            ig_md.afd.drop_withheld = afd_drop_flag;
+            afd_drop_flag = 0;
+        } else { // Dropping is enabled
+            // Deposit or pick up packet bytecounts to allow the lo/hi drop
+            // simulations to work around true dropping.
+            byte_dumps.apply(ig_md.afd.vlink_id,
+                             ig_md.afd.scaled_pkt_len,
+                             afd_drop_flag_lo,
+                             afd_drop_flag,
+                             afd_drop_flag_hi,
+                             ig_md.afd.bytes_sent_lo,
+                             ig_md.afd.bytes_sent_hi,
+                             ig_md.afd.bytes_sent_all);
+        }
         if (afd_drop_flag == 1) {
             // TODO: send to low-priority queue instead of outright dropping
             ig_dprsr_md.drop_ctl = 1;
