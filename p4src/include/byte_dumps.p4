@@ -51,7 +51,7 @@ control ByteDumps(in vlink_index_t vlink_id,
     @hidden
     table dump_or_grab_lo_bytes {
         key = {
-            drop_flag : exact;
+            drop_flag_mid : exact;
             drop_flag_lo : exact;
         }
         actions = {
@@ -104,7 +104,7 @@ control ByteDumps(in vlink_index_t vlink_id,
     @hidden
     table dump_or_grab_hi_bytes {
         key = {
-            drop_flag : exact;
+            drop_flag_mid : exact;
             drop_flag_hi : exact;
         }
         actions = {
@@ -145,7 +145,7 @@ control ByteDumps(in vlink_index_t vlink_id,
     @hidden
     table dump_or_grab_all_bytes {
         key = {
-            drop_flag : exact;
+            drop_flag_mid : exact;
         }
         actions = {
             dump_all_bytes;

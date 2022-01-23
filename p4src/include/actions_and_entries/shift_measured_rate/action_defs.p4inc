@@ -1,189 +1,189 @@
 
 action rshift_0() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 0);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 0);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 0);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 0);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 0);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 0);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 0);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 0);
 }
 
 action rshift_1() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 1);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 1);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 1);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 1);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 1);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 1);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 1);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 1);
 }
 
 action rshift_2() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 2);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 2);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 2);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 2);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 2);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 2);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 2);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 2);
 }
 
 action rshift_3() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 3);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 3);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 3);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 3);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 3);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 3);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 3);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 3);
 }
 
 action rshift_4() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 4);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 4);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 4);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 4);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 4);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 4);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 4);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 4);
 }
 
 action rshift_5() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 5);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 5);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 5);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 5);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 5);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 5);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 5);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 5);
 }
 
 action rshift_6() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 6);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 6);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 6);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 6);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 6);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 6);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 6);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 6);
 }
 
 action rshift_7() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 7);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 7);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 7);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 7);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 7);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 7);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 7);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 7);
 }
 
 action rshift_8() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 8);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 8);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 8);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 8);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 8);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 8);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 8);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 8);
 }
 
 action rshift_9() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 9);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 9);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 9);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 9);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 9);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 9);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 9);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 9);
 }
 
 action rshift_10() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 10);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 10);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 10);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 10);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 10);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 10);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 10);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 10);
 }
 
 action rshift_11() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 11);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 11);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 11);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 11);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 11);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 11);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 11);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 11);
 }
 
 action rshift_12() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 12);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 12);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 12);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 12);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 12);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 12);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 12);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 12);
 }
 
 action rshift_13() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 13);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 13);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 13);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 13);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 13);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 13);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 13);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 13);
 }
 
 action rshift_14() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 14);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 14);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 14);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 14);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 14);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 14);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 14);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 14);
 }
 
 action rshift_15() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 15);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 15);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 15);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 15);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 15);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 15);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 15);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 15);
 }
 
 action rshift_16() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 16);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 16);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 16);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 16);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 16);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 16);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 16);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 16);
 }
 
 action rshift_17() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 17);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 17);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 17);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 17);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 17);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 17);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 17);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 17);
 }
 
 action rshift_18() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 18);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 18);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 18);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 18);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 18);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 18);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 18);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 18);
 }
 
 action rshift_19() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 19);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 19);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 19);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 19);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 19);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 19);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 19);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 19);
 }
 
 action rshift_20() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 20);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 20);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 20);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 20);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 20);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 20);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 20);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 20);
 }
 
 action rshift_21() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 21);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 21);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 21);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 21);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 21);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 21);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 21);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 21);
 }
 
 action rshift_22() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 22);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 22);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 22);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 22);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 22);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 22);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 22);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 22);
 }
 
 action rshift_23() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 23);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 23);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 23);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 23);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 23);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 23);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 23);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 23);
 }
 
 action rshift_24() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 24);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 24);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 24);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 24);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 24);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 24);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 24);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 24);
 }
 
 action rshift_25() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 25);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 25);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 25);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 25);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 25);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 25);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 25);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 25);
 }
 
 action rshift_26() {
-    threshold_lo_shifted  = (shifted_rate_t) (afd_md.threshold_lo  >> 26);
-    threshold_shifted     = (shifted_rate_t) (afd_md.threshold     >> 26);
-    threshold_hi_shifted  = (shifted_rate_t) (afd_md.threshold_hi  >> 26);
-    measured_rate_shifted = (shifted_rate_t) (afd_md.measured_rate >> 26);
+    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> 26);
+    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> 26);
+    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> 26);
+    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> 26);
 }

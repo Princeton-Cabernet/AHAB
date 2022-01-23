@@ -151,7 +151,7 @@ control RateEnforcer(in bytecount_t scaled_pkt_len,
     // True drop flag table
     @hidden
     action get_flip_drop_flag_mid() {
-        drop_flag = get_flip_drop_flag_mid_regact.execute(0);
+        drop_flag_mid = get_flip_drop_flag_mid_regact.execute(0);
     }
     @hidden
     action get_flop_drop_flag_mid() {
@@ -255,22 +255,22 @@ control RateEnforcer(in bytecount_t scaled_pkt_len,
      * -------------------------------------------------------------------------------------- */
     // Grab true drop probability
     @hidden
-    action load_drop_prob_act(drop_prob_t prob) {
+    action load_drop_prob_mid_act(drop_prob_t prob) {
         drop_probability = prob;
     }
     @hidden
-	table load_drop_prob {
+	table load_drop_prob_mid {
 		key = {
             threshold_shifted : exact;
             measured_rate_shifted: exact;
 		}
 		actions = {
-            load_drop_prob_act;
+            load_drop_prob_mid_act;
         }
-		default_action=load_drop_prob_act(0);
+		default_action=load_drop_prob_mid_act(0);
         size = DROP_PROB_LOOKUP_TBL_SIZE;
         const entries = {
-#include "actions_and_entries/load_drop_prob/const_entries.p4inc"
+#include "actions_and_entries/load_drop_prob/const_entries_mid.p4inc"
         }
 	}
     // Grab lo drop probability
