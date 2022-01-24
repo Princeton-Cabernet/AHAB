@@ -51,22 +51,23 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
 
 
     exponent_t remaining_lshift;
+    byterate_t t_tmp;
     /*
      * The following includes will contain actions of the form
      * @hidden
      * action output_rshift_x() {
-     *     t_new = div_result_mantissa >> x;
+     *     t_tmp = div_result_mantissa >> x;
      * }
      * AND
      * @hidden
      * action output_lshift_x() {
-     *     t_new = div_result_mantissa << x;
+     *     t_tmp = div_result_mantissa << x;
      * }
      */
 #include "actions_and_entries/shift_lookup_output/action_defs.p4inc"
     action output_too_small() {
         // Call this action if div_result_mantissa would be rightshifted to oblivion
-        t_new = 0;
+        t_tmp = 0;
     }
 
     table shift_lookup_output {
@@ -85,6 +86,8 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
 #include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
         }
     }
+
+
 
 #include "actions_and_entries/shift_lookup_output_stage2/action_defs.p4inc"
     table shift_lookup_output_stage2 {

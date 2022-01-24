@@ -60,6 +60,35 @@ testcase_list=[
     for i in range(10)
 ]
 
+# a test case in the dead zone
+#testcase_list = testcase_list[1:2]
+
+rounding_precision = 5
+for i, testcase_dict in enumerate(testcase_list):
+    num = testcase_dict["numerator"]
+    den = testcase_dict["denominator"]
+    t_mid = testcase_dict["t_mid"]
+    exp = testcase_dict["delta_t_log"]
+
+    num_rounded = num
+    den_rounded = den
+    if den >= (1 << rounding_precision):
+        num_rounded = num >> (den.bit_length() - rounding_precision)
+        den_rounded = den >> (den.bit_length() - rounding_precision)
+
+    perfect_result: int
+    expected_result: int
+    if testcase_dict["interp_op"] == 1:
+        # interp_left
+        perfect_result = round(t_mid - (num / den) * (2 ** exp))
+        expected_result = round(t_mid - (num_rounded / den_rounded) * (2 ** exp))
+    else:
+        #interp_right
+        perfect_result = round(t_mid + (num / den) * (2 ** exp))
+        expected_result = round(t_mid + (num_rounded / den_rounded) * (2 ** exp))
+    print("Test case:", i, ", Perfect answer:", perfect_result, ", LUT Answer:", expected_result)
+
+
 testcase_input_map={
     idx:build_input_packet(id=idx,**case)
     for idx,case in enumerate(testcase_list)

@@ -38,7 +38,9 @@ def get_ternary_match_key(val: int, mask: int) -> str:
 
 
 def get_match_key_leftmost_bit(bit_pos: int) -> str:
-    assert (0 <= bit_pos <= 31)
+    """ NOTE: bit_pos is 0-indexed. bit_pos == 0 is the right-most bit. 
+    """
+    assert (0 < bit_pos <= 31)
     mask = (ONES_32 << bit_pos) & ONES_32
     val = 1 << bit_pos
     return get_ternary_match_key(val, mask)
@@ -49,7 +51,7 @@ def gen_files__shift_lookup_input():
     Table shift_lookup_inputs that creates input keys to the fair rate threshold interpolator
     """
     max_shift = bitwidth_of_byterate_t - interp_input_precision - 1
-    min_shift = 1
+    min_shift = 0
     action_namef = "input_rshift_{}"
     action_bodyf = "    shifted_numerator   = (div_lookup_key_t) (numerator >> {});\n" \
                    "    shifted_denominator = (div_lookup_key_t) (denominator >> {});"
@@ -67,9 +69,9 @@ def gen_files__shift_lookup_input():
 
     with open(dir_name + fname_const_entries, "w") as fp:
         for shift in range(min_shift, max_shift+1):
-            # if leftmost bit is at position interp_input_precision + k, rshift by k
-            # if rshifting by k, check for leftmost bit at interp_input_precision + k
-            bit_pos = shift + interp_input_precision
+            # if leftmost bit is at position interp_input_precision + k - 1, rshift by k
+            # if rshifting by k, check for leftmost bit at interp_input_precision + k - 1
+            bit_pos = shift + interp_input_precision - 1
             match_key = get_match_key_leftmost_bit(bit_pos)
             action_string = action_namef.format(shift)
             fp.write("{} : {}();\n".format(match_key, action_string))
@@ -85,13 +87,13 @@ def gen_files__shift_lookup_output():
     max_lshift = 31
     min_lshift = 1
     action_l_namef = "output_lshift_{}"
-    action_l_bodyf = "    t_new = div_result_mantissa << {};\n"\
+    action_l_bodyf = "    t_tmp = div_result_mantissa << {};\n"\
                      "    remaining_lshift = remaining_lshift_param;"
 
     max_rshift = interp_output_precision
     min_rshift = 0
     action_r_namef = "output_rshift_{}"
-    action_r_bodyf = "    t_new = div_result_mantissa >> {};\n" \
+    action_r_bodyf = "    t_tmp = div_result_mantissa >> {};\n" \
                      "    remaining_lshift = 0;"
 
     first_lshifts = list(range(min_lshift, max_lshift+1, num_second_shifts))
@@ -138,7 +140,7 @@ def gen_files__shift_lookup_output_stage2():
     max_shift = num_second_shifts - 1
     min_shift = 1
     action_namef = "output_stage2_rshift_{}"
-    action_bodyf = "    t_new = t_new << {};"
+    action_bodyf = "    t_new = t_tmp << {};"
 
     dir_name = base_dir + dir_shift_lookup_output_stage2
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
@@ -181,9 +183,9 @@ def gen_files__shift_measured_rate():
 
     with open(dir_name + fname_const_entries, "w") as fp:
         for shift in range(min_shift, max_shift+1):
-            # if leftmost bit is at position bitwidth + k, rshift by k
-            # if rshifting by k, check for leftmost bit at bitwidth + k
-            bit_pos = shift + drop_rate_input_precision
+            # if leftmost bit is at position bitwidth + k - 1, rshift by k
+            # if rshifting by k, check for leftmost bit at bitwidth + k - 1
+            bit_pos = shift + drop_rate_input_precision - 1
             match_key = get_match_key_leftmost_bit(bit_pos)
             action_string = action_namef.format(shift)
             fp.write("{} : {}();\n".format(match_key, action_string))

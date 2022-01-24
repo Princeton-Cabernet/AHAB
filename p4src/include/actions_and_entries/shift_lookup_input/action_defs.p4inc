@@ -1,4 +1,9 @@
 
+action input_rshift_0() {
+    shifted_numerator   = (div_lookup_key_t) (numerator >> 0);
+    shifted_denominator = (div_lookup_key_t) (denominator >> 0);
+}
+
 action input_rshift_1() {
     shifted_numerator   = (div_lookup_key_t) (numerator >> 1);
     shifted_denominator = (div_lookup_key_t) (denominator >> 1);
