@@ -13,44 +13,40 @@ control RateEstimator(in bit<32> src_ip,
     Lpf<bytecount_t, cms_index_t>(size=CMS_HEIGHT) lpf_3;
 
 
-    byterate_t cms_output_1;
-    byterate_t cms_output_2;
-    byterate_t cms_output_3;
+    byterate_t cms_output_1_;
+    byterate_t cms_output_2_;
+    byterate_t cms_output_3_;
 
 
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_1;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_2;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_3;
 
-    cms_index_t index1;
-    cms_index_t index2;
-    cms_index_t index3;
+    cms_index_t index1_;
+    cms_index_t index2_;
+    cms_index_t index3_;
 
     bit<1> dummy_bit = 0;
 
-    @hidden
-    action read_cms_act1() {
-        index1 = hash_1.get({ src_ip,
+    action get_index1_(){
+        index1_ = hash_1.get({ src_ip,
                              dst_ip,
                              proto,
                              src_port,
                              dst_port});
-        cms_output_1 = (byterate_t) lpf_1.execute(sketch_input, index1);
     }
-    @hidden
-    action read_cms_act2() {
-        index2 = hash_2.get({ src_ip,
+    
+    action get_index2_(){
+        index2_ = hash_2.get({ src_ip,
                              3w0,
                              dst_ip,
                              3w0,
                              proto,
                              src_port,
                              dst_port});
-        cms_output_2 = (byterate_t) lpf_2.execute(sketch_input, index2);
     }
-    @hidden
-    action read_cms_act3() {
-        index3 = hash_3.get({ src_ip,
+    action get_index3_(){
+        index3_ = hash_3.get({ src_ip,
                              dst_ip,
                              2w0,
                              proto,
@@ -58,41 +54,40 @@ control RateEstimator(in bit<32> src_ip,
                              src_port,
                              1w0,
                              dst_port});
-        cms_output_3 = (byterate_t) lpf_3.execute(sketch_input, index3);
     }
 
-    @hidden
-    table cms_tbl1 {
-        key = { dummy_bit: exact; }
-        actions = { read_cms_act1; }
-        const entries = { 0 : read_cms_act1(); }
-        size = 1;
+    action truncate_index(){
+	index1_ = index1_ & (CMS_HEIGHT-1);
+	index2_ = index2_ & (CMS_HEIGHT-1);
+	index3_ = index3_ & (CMS_HEIGHT-1);
     }
-    @hidden
-    table cms_tbl2 {
-        key = { dummy_bit: exact; }
-        actions = { read_cms_act2; }
-        const entries = { 0 : read_cms_act2(); }
-        size = 1;
+
+    action read_cms_act1_() {
+        cms_output_1_ = (byterate_t) lpf_1.execute(sketch_input, index1_);
     }
-    @hidden
-    table cms_tbl3 {
-        key = { dummy_bit: exact; }
-        actions = { read_cms_act3; }
-        const entries = { 0 : read_cms_act3(); }
-        size = 1;
+    action read_cms_act2_() {
+        cms_output_2_ = (byterate_t) lpf_2.execute(sketch_input, index2_);
+    }
+    action read_cms_act3_() {
+        cms_output_3_ = (byterate_t) lpf_3.execute(sketch_input, index3_);
     }
 
 
 
     apply {
         // Get CMS indices
-        cms_tbl1.apply();
-        cms_tbl2.apply();
-        cms_tbl3.apply();
+	get_index1_();
+	get_index2_();
+	get_index3_();
+        // Too long, take lower bits
+	truncate_index();
+
+	read_cms_act1_();
+	read_cms_act2_();
+	read_cms_act3_();
 
         // Get the minimum of all register contents
-        sketch_output = min<byterate_t>(cms_output_1, cms_output_2);
-        sketch_output = min<byterate_t>(sketch_output, cms_output_3);
+        sketch_output = min<byterate_t>(cms_output_1_, cms_output_2_);
+        sketch_output = min<byterate_t>(sketch_output, cms_output_3_);
     }
 }
