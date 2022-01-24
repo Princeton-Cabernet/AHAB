@@ -9,8 +9,7 @@ struct drop_prob_pair_t {
     drop_prob_t lo;
 }
 
-control RateEnforcer(in bytecount_t scaled_pkt_len,
-                     in byterate_t measured_rate,
+control RateEnforcer(in byterate_t measured_rate,
                      in byterate_t threshold_lo,
                      in byterate_t threshold_mid,
                      in byterate_t threshold_hi,

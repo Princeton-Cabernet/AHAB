@@ -67,8 +67,7 @@ control SwitchIngress(
         bit<1> afd_drop_flag_lo;
         bit<1> afd_drop_flag;
         bit<1> afd_drop_flag_hi;
-        rate_enforcer.apply(ig_md.afd.scaled_pkt_len,
-                            ig_md.afd.measured_rate,
+        rate_enforcer.apply(ig_md.afd.measured_rate,
                             ig_md.afd.threshold_lo,
                             ig_md.afd.threshold,
                             ig_md.afd.threshold_hi,
