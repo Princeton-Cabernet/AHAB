@@ -37,7 +37,7 @@ control RateEnforcer(in byterate_t measured_rate,
     shifted_rate_t threshold_hi_shifted;
     
     @hidden
-    Register<bit<1>, bit<1>>(1) flipflop_reg;
+    Register<bit<1>, bit<8>>(1) flipflop_reg;
     @hidden
     RegisterAction<bit<8>, bit<1>, bit<8>>(flipflop_reg) get_flipflop = {
         void apply(inout bit<8> stored, out bit<8> returned) {
@@ -57,7 +57,7 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Probabilistically set the drop flag based upon current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<1>>(1) drop_flag_mid_calculator;
+    Register<drop_prob_pair_t, bit<8>>(1) drop_flag_mid_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_mid_calculator) get_flip_drop_flag_mid_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
@@ -87,7 +87,7 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Pretend to probabilistically drop using threshold_lo as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<1>>(1) drop_flag_lo_calculator;
+    Register<drop_prob_pair_t, bit<8>>(1) drop_flag_lo_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
@@ -117,7 +117,7 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Pretend to probabilistically drop using threshold_hi as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<1>>(1) drop_flag_hi_calculator;
+    Register<drop_prob_pair_t, bit<8>>(1) drop_flag_hi_calculator;
     RegisterAction<drop_prob_pair_t, bit<1>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
