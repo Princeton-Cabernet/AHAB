@@ -1,7 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 #include "define.h"
 
-#define DROP_PROB_LOOKUP_TBL_SIZE 512
+#define DROP_PROB_LOOKUP_TBL_SIZE 1024
 typedef bit<5> shifted_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
 typedef bit<8> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,256]
 struct drop_prob_pair_t {
