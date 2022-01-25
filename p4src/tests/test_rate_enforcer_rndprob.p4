@@ -31,10 +31,10 @@ control SwitchIngress(
     }
 
     apply {
-        byterate_t measured_rate= hdr.ethernet.src_addr[31:0];
-        byterate_t desired_rate= hdr.ethernet.dst_addr[31:0];//threshold_mid
-        byterate_t threshold_low=hdr.ipv4.src_addr;
-        byterate_t threshold_high=hdr.ipv4.dst_addr;
+        byterate_t measured_rate= 1+hdr.ethernet.src_addr[31:0];
+        byterate_t desired_rate= 1+hdr.ethernet.dst_addr[31:0];//threshold_mid
+        byterate_t threshold_low=1+hdr.ipv4.src_addr;
+        byterate_t threshold_high=1+hdr.ipv4.dst_addr;
 
 	//drop flags
 	bit<1> f_lo=1;
