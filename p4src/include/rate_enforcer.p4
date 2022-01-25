@@ -314,8 +314,19 @@ control RateEnforcer(in byterate_t measured_rate,
         }
 	}
 
+	action choose_shift_table_key_act() {
+        	shift_table_key = max<byterate_t>(threshold_hi, measured_rate);
+	}
+	table choose_shift_table_key_tbl {
+		key = {}
+		actions = { choose_shift_table_key_act; }
+		default_action = choose_shift_table_key_act();
+		size = 1;
+	}
+		
+
 	apply {
-        shift_table_key = max<byterate_t>(threshold_hi, measured_rate);
+        choose_shift_table_key_tbl.apply();
         // Approximate rates as narrower integers for use in the lookup tables
         shift_measured_rate.apply();
         // Lookup tables for true and simulated drop probabilities.
