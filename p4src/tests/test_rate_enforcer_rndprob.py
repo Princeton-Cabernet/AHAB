@@ -30,7 +30,7 @@ def build_input_packet(id, measured_rate, t_lo,t_mid,t_hi):
 REPEAT=20
 testcase_list=[
         {"measured_rate":int(i*0.1*base),"t_lo":int(0.7*base),"t_mid":int(base),"t_hi":int(1.3*base)}
-        for i in range(20)
+        for i in [0,1,4,8]+list(range(10,20))+[25,30,40,60,80,120,160,320,640]
         for base in [1000,10000,1000000]
 ]*REPEAT  #each repeat 10 times
 
@@ -63,17 +63,24 @@ def summarize_results():
         if (base,meas) not in result_lists:
             result_lists[(base,meas)]=[]
         result_lists[(base,meas)].append( testcase_ans_map[i] )
-    for base,meas in sorted(result_lists.keys(), key=lambda x:(x[1],x[0])): #sort by base
-        l_tup=sorted(result_lists[(base,meas)]) 
-        v_lo =[x[0] for x in l_tup]
-        v_mid=[x[1] for x in l_tup]
-        v_hi =[x[2] for x in l_tup]
 
-        def printvect(v):
-            return ''.join([' ' if x==0 else '*' for x in v])
-        infoline=(f'base={base} measured={meas}')
-        ansline='\t lo:['+printvect(v_lo)+'] \t mid:['+printvect(v_mid)+'] \t hi:['+printvect(v_hi)+']'
-        print(ansline +'\t\t'+ infoline)
+    allpairs=result_lists.keys()
+    allbase=sorted(set([b for b,m in allpairs]))
+    for base in allbase:
+        allmeas=sorted([m for b,m in allpairs if b==base])
+        print('**** base=',base)
+        for meas in allmeas:
+            l_tup=sorted(result_lists[(base,meas)]) 
+            v_lo =[x[0] for x in l_tup]
+            v_mid=[x[1] for x in l_tup]
+            v_hi =[x[2] for x in l_tup]
+
+            def printvect(v):
+                return ''.join([' ' if x==0 else '*' for x in v])
+            ratio=meas/base
+            infoline=(f'base={base} measured={meas} ratio={ratio}')
+            ansline='\t lo:['+printvect(v_lo)+'] \t mid:['+printvect(v_mid)+'] \t hi:['+printvect(v_hi)+']'
+            print(ansline +'\t\t'+ infoline)
 
 
 def sniff_thread(iface, num_wait,end_event):
@@ -87,7 +94,8 @@ def sniff_thread(iface, num_wait,end_event):
             id=p['IP'].id
             resp=p['Ether'].src
             ret_parsed=parse_resp(resp)
-            print('*** got response:',id, ret_parsed)
+            r=received_counter['x']
+            print('*** got response: id=',id, f'{r}/{num_wait}',ret_parsed)
             testcase_ans_map[id]=ret_parsed
             received_counter['x']+=1
             if received_counter['x'] >= num_wait:
