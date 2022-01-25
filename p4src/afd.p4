@@ -242,10 +242,15 @@ control SwitchEgress(
 
     apply {
         if (eg_md.afd.is_worker == 0) {
-            link_rate_tracker.apply(eg_md.afd.vlink_id, eg_md.afd.drop_withheld,
-                                    eg_md.afd.scaled_pkt_len, eg_md.afd.bytes_sent_all,
-                                    eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
-                                    vlink_rate, vlink_rate_lo, vlink_rate_hi, 
+            link_rate_tracker.apply(eg_md.afd.vlink_id, 
+                                    eg_md.afd.drop_withheld,
+                                    eg_md.afd.scaled_pkt_len, 
+                                    eg_md.afd.bytes_sent_all,
+                                    eg_md.afd.bytes_sent_lo, 
+                                    eg_md.afd.bytes_sent_hi,
+                                    vlink_rate, 
+                                    vlink_rate_lo, 
+                                    vlink_rate_hi, 
                                     vlink_demand);
             vtrunk_lookup.apply();
             demand_delta = eg_md.afd.vtrunk_threshold - vlink_demand; 
@@ -253,7 +258,9 @@ control SwitchEgress(
                                      eg_md.afd.measured_rate,
                                      eg_md.afd.is_worker,
                                      eg_md.afd.max_rate);
-            threshold_interpolator.apply(vlink_rate, vlink_rate_lo, vlink_rate_hi,
+            threshold_interpolator.apply(vlink_rate, 
+                                         vlink_rate_lo, 
+                                         vlink_rate_hi,
                                          eg_md.afd.vtrunk_threshold, 
                                          eg_md.afd.threshold,
                                          eg_md.afd.threshold_lo, 

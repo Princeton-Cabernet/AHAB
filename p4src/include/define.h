@@ -5,6 +5,8 @@
 #define NUM_VLINKS 4096
 #define NUM_VTRUNKS 256
 #define CMS_HEIGHT 2048
+#define DEFAULT_VLINK_CAPACITY 8192
+#define DEFAULT_THRESHOLD 1024
 
 #define BYTERATE_T_SIGN_BIT 0x80000000
 typedef bit<16> cms_index_t;

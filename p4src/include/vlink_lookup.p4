@@ -1,5 +1,4 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
-#define DEFAULT_THRESHOLD 1024
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     byterate_t threshold_delta_minus = 0;
@@ -117,23 +116,23 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 6);
 	}
 	table tb_match_ip{
-		key = {
+        key = {
             hdr.ipv4.dst_addr: lpm;
         }
-		actions = {
-			set_vlink_rshift2;
-			set_vlink_rshift1;
-			set_vlink_noshift;
-			set_vlink_lshift1;
-			set_vlink_lshift2;
-			set_vlink_lshift3;
-			set_vlink_lshift4;
-			set_vlink_lshift5;
-			set_vlink_lshift6;
-		}
-		default_action = set_vlink_noshift(0);
-		size = 1024;
-	}
+        actions = {
+            set_vlink_rshift2;
+            set_vlink_rshift1;
+            set_vlink_noshift;
+            set_vlink_lshift1;
+            set_vlink_lshift2;
+            set_vlink_lshift3;
+            set_vlink_lshift4;
+            set_vlink_lshift5;
+            set_vlink_lshift6;
+        }
+        default_action = set_vlink_noshift(0);
+        size = 1024;
+    }
 
 
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
@@ -233,10 +232,10 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 
 
 	apply {
-		tb_match_ip.apply();
+        tb_match_ip.apply();
         read_or_write_congestion_flag.apply();
         read_or_write_threshold.apply();
-		compute_candidates.apply();
-		indirect_sub_tbl.apply();
+        compute_candidates.apply();
+        indirect_sub_tbl.apply();
 	}
 }

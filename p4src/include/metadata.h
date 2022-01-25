@@ -4,7 +4,7 @@
 
 @pa_auto_init_metadata
 struct afd_metadata_t {
-    packet_type_t           pkt_type;  // This has to be first
+    packet_type_t           pkt_type;  // This has to be first for parser lookahead
     epoch_t                 epoch;
     vlink_index_t           vlink_id;
     vtrunk_index_t          vtrunk_id;
