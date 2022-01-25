@@ -200,7 +200,7 @@ def gen_files__drop_prob_lookup():
     entryf = "({:>3}, {:>3}) : load_drop_prob{}_act({:>3});\n"
     for suffix in ["_mid", "_lo", "_hi"]:
         with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
-            for denominator in range(1, 1 << drop_rate_input_precision):
+            for denominator in range(1 << (drop_rate_input_precision - 1), 1 << drop_rate_input_precision):
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
                     drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
