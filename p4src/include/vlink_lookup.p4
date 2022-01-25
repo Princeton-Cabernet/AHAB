@@ -1,4 +1,5 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
+#define DEFAULT_THRESHOLD 1024
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     byterate_t threshold_delta_minus = 0;
@@ -6,6 +7,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
+            if (stored_threshold == 0) {
+                stored_threshold = DEFAULT_THRESHOLD;
+            }
             retval = stored_threshold;
         }
     };
