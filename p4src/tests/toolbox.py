@@ -33,3 +33,6 @@ def ip_to_int(ip):
         ret+=i
     return ret
 
+def mac_to_int(mac):
+    for s in mac.split(":"): assert(len(s)==2)
+    return int('0x'+mac.replace(':',''),16)
