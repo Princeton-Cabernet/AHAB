@@ -27,11 +27,12 @@ def build_input_packet(id, measured_rate, t_lo,t_mid,t_hi):
     )
 
 
+REPEAT=20
 testcase_list=[
         {"measured_rate":int(i*0.1*base),"t_lo":int(0.7*base),"t_mid":int(base),"t_hi":int(1.3*base)}
         for i in range(20)
         for base in [1000,10000,1000000]
-]*10 #each repeat 10 times
+]*REPEAT  #each repeat 10 times
 
 # a test case in the dead zone
 #testcase_list = testcase_list[1:2]
@@ -41,7 +42,6 @@ testcase_input_map={
     for idx,case in enumerate(testcase_list)
 }
 testcase_ans_map={idx:None for idx,case in enumerate(testcase_list)}
-REPEAT=10
 
 
 iface='veth0'
@@ -64,16 +64,16 @@ def summarize_results():
             result_lists[(base,meas)]=[]
         result_lists[(base,meas)].append( testcase_ans_map[i] )
     for base,meas in sorted(result_lists.keys(), key=lambda x:(x[1],x[0])): #sort by base
-        l_tup=result_lists[(base,meas)] #
+        l_tup=sorted(result_lists[(base,meas)]) 
         v_lo =[x[0] for x in l_tup]
         v_mid=[x[1] for x in l_tup]
         v_hi =[x[2] for x in l_tup]
 
         def printvect(v):
             return ''.join([' ' if x==0 else '*' for x in v])
-        print('base=',base,' measured=',meas)
+        infoline=(f'base={base} measured={meas}')
         ansline='\t lo:['+printvect(v_lo)+'] \t mid:['+printvect(v_mid)+'] \t hi:['+printvect(v_hi)+']'
-        print(ansline)
+        print(ansline +'\t\t'+ infoline)
 
 
 def sniff_thread(iface, num_wait,end_event):
