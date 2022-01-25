@@ -26,6 +26,7 @@ control RateEnforcer(in byterate_t measured_rate,
     // TODO: ensure candidates are not corrupted when only dropping during congestion
 
     Random<drop_prob_t>() rng;
+    byterate_t shift_table_key;
     //drop_prob_t rng_output;
     drop_prob_t drop_probability = 0;     // set by lookup table to 1 - min(1, threshold / measured_rate)
     drop_prob_t drop_probability_lo = 0;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
@@ -235,7 +236,7 @@ control RateEnforcer(in byterate_t measured_rate,
     */
 	table shift_measured_rate {
 		key = {
-            measured_rate: ternary;
+            shift_table_key: ternary;
         }
 		actions = {
 #include "actions_and_entries/shift_measured_rate/action_list.p4inc"
@@ -314,6 +315,7 @@ control RateEnforcer(in byterate_t measured_rate,
 	}
 
 	apply {
+        shift_table_key = max<byterate_t>(threshold_hi, measured_rate);
         // Approximate rates as narrower integers for use in the lookup tables
         shift_measured_rate.apply();
         // Lookup tables for true and simulated drop probabilities.
