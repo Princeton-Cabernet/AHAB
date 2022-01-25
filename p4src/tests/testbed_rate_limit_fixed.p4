@@ -35,6 +35,8 @@ control SwitchIngress(
         route_to_port((bit<9>) hdr.ipv4.dst_addr[7:0]);
     }
 
+    Random<bit<12>>() rng;
+
     apply {
 	bytecount_t sketch_input=(bytecount_t) hdr.ipv4.total_len;
 	byterate_t sketch_output=0;
@@ -62,13 +64,23 @@ control SwitchIngress(
 
 	// Fixed rate limit of 10Mbps
 	// at default config (rate mode, 1e6 decay, 1 scale), the limit is about 1200
- 
-	if((sketch_output[byterate_t_width-1 : 12] != 0) || sketch_output[11:0]>1200){ //>2^12 or  >1200
-		drop();
-	}
-	
-	hdr.ethernet.src_addr=(bit<48>)sketch_output;
 
+	// A simple version of RED, stepwise probability
+
+	bit<12> rate_est=sketch_output[11:0];
+	bit<20> rate_high=sketch_output[31:12];
+
+	bit<12> entropy=rng.get();
+
+	if(rate_high!=0 || rate_est>2800){
+		drop();
+	}else if(rate_est>1300){
+		if(entropy<2000){drop();}
+	}else if(rate_est>1200){
+		if(entropy<400){drop();}
+	}
+
+	hdr.ethernet.src_addr=(bit<48>)sketch_output;
 	testbed_route();
     }
 }
