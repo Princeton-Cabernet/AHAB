@@ -7,6 +7,7 @@ typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
 const ether_type_t ETHERTYPE_IPV4 = 16w0x0800;
 const ether_type_t ETHERTYPE_VLAN = 16w0x0810;
+const ether_type_t ETHERTYPE_THRESHOLD_UDPATE = 16w0x0901;
 
 typedef bit<8> ip_protocol_t;
 const ip_protocol_t IP_PROTOCOLS_ICMP = 1;
@@ -19,6 +20,20 @@ const tcp_flags_t TCP_FLAGS_S = 2;
 const tcp_flags_t TCP_FLAGS_R = 4;
 const tcp_flags_t TCP_FLAGS_P = 8;
 const tcp_flags_t TCP_FLAGS_A = 16;
+
+//== Special Headers
+// Header for sending updates from egress to ingress
+header afd_recirc_h {
+    vlink_index_t vlink_id;
+    byterate_t new_threshold;
+    bit<1> congestion_flag;
+    bit<7> padding;
+}
+// Header for mirrored packets from ingress to egress
+header mirror_h {
+    packet_type_t   pkt_type;
+    vlink_index_t   vlink_id;
+}
 
 //== Headers
 header ethernet_h {
@@ -63,6 +78,8 @@ header udp_h {
 }
 
 struct header_t {
+    ethernet_h fake_ethernet;  // For signalling to ingress that this is an update
+    afd_recirc_h afd_update;  // Update contents
     ethernet_h ethernet;
     ipv4_h ipv4;
     tcp_h tcp;

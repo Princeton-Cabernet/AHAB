@@ -4,6 +4,7 @@
 
 @pa_auto_init_metadata
 struct afd_metadata_t {
+    packet_type_t           pkt_type;  // This has to be first
     epoch_t                 epoch;
     vlink_index_t           vlink_id;
     vtrunk_index_t          vtrunk_id;
@@ -21,7 +22,7 @@ struct afd_metadata_t {
     bytecount_t             bytes_sent_all;  // packet size for total demand simulation
 
     byterate_t              new_threshold;
-    bit<1>                  is_worker;
+    bit<1>                  is_worker;  // Set by parser. Do not write in MATs
     bit<1>                  congestion_flag;
     bit<1>                  drop_withheld;
     byterate_t              max_rate;
@@ -30,6 +31,7 @@ struct afd_metadata_t {
 @pa_auto_init_metadata
 struct ig_metadata_t {
     afd_metadata_t afd;
+
     bit<16> sport;
     bit<16> dport;
 }

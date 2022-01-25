@@ -16,3 +16,17 @@ typedef bit<8> vtrunk_index_t;
 
 typedef bit<5> exponent_t;
 
+
+typedef bit<8> packet_type_t;
+const packet_type_t NORMAL = 0;
+const packet_type_t MIRROR = 1;
+const packet_type_t RECIRCULATED = 2;
+
+
+#if __TARGET_TOFINO__ == 1
+typedef bit<3> mirror_type_t;
+#else
+typedef bit<4> mirror_type_t;
+#endif
+const mirror_type_t MIRROR_TYPE_I2E = 1;
+const mirror_type_t MIRROR_TYPE_E2E = 2;

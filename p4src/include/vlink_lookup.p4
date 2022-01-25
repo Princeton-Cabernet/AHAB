@@ -4,6 +4,45 @@
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     byterate_t threshold_delta_minus = 0;
 
+
+    @hidden
+    Register<bit<1>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) write_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag) {
+            stored_flag = afd_md.congestion_flag;
+        }
+    };
+    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) read_congestion_flag_regact = {
+        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
+            returned_flag = stored_flag;
+        }
+    };
+    @hidden
+    action write_congestion_flag() {
+        write_congestion_flag_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    action read_congestion_flag() {
+        afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
+    }
+
+    @hidden
+    table read_or_write_congestion_flag {
+        key = {
+            afd_md.is_worker : exact;
+        }
+        actions = {
+            write_congestion_flag;
+            read_congestion_flag;
+        }
+        const entries = {
+            1 : write_congestion_flag();
+            0 : read_congestion_flag();
+        }
+        size = 2;
+    }
+
+
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
@@ -29,7 +68,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     @hidden
     table read_or_write_threshold {
         key = {
-            afd_md.is_worker : exact; // TODO: set the is_worker flag on recirculation
+            afd_md.is_worker : exact;
         }
         actions = {
             read_stored_threshold_act;
@@ -195,6 +234,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 
 	apply {
 		tb_match_ip.apply();
+        read_or_write_congestion_flag.apply();
         read_or_write_threshold.apply();
 		compute_candidates.apply();
 		indirect_sub_tbl.apply();

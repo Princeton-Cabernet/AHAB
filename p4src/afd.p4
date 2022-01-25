@@ -51,18 +51,12 @@ control SwitchIngress(
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
-        if (is_mirrored_pkt) {
-            // A freshly mirrored packet doesn't need to do anything in ingress.
-            // It needs to go to egress to pick up the new thresold.
-            // TODO: move mirroring to egress
-            exit; 
-        }
-
         vlink_lookup.apply(hdr, ig_md.afd);
 
-        if (is_recirculated_pkt) {
+        if (ig_md.afd.is_worker == 1) {
+            // If is_worker is already set, then this packet was a recirculation.
             // A recirculated packet's only job is to write a new threshold,
-            // which happens in vlink_lookup.
+            // which just happened in vlink_lookup, so time to drop.
             ig_dprsr_md.drop_ctl = 1;
             exit;
         }
@@ -70,7 +64,11 @@ control SwitchIngress(
         bit<1> work_flag;
         worker_generation.apply(epoch, ig_md.afd.vlink_id, work_flag);
         if (work_flag == 1) {
-            mirror_to_recirculation_port(); // TODO
+            ig_dprsr_md.mirror_type = MIRROR_TYPE_I2E;
+            ig_md.afd.pkt_type = PKT_TYPE_MIRROR;
+            ig_md.ing_mir_ses = THRESHOLD_UPDATE_MIRROR_SESSION;
+        } else {
+            ig_md.afd.pkt_type = PKT_TYPE_NORMAL;
         }
 
         // Approximately measure this flow's instantaneous rate.
@@ -115,6 +113,7 @@ control SwitchIngress(
             ig_dprsr_md.drop_ctl = 1;
         }
         // TODO: bridge afd metadata
+
     }
 }
 
@@ -148,6 +147,7 @@ control SwitchEgress(
         actions = {
             load_vtrunk_fair_rate;
         }
+        default_action = load_vtrunk_fair_rate(DEFAULT_VLINK_CAPACITY);
         size = NUM_VTRUNKS;
     }
 
@@ -241,16 +241,12 @@ control SwitchEgress(
 
 
     apply {
-        // TODO: check if current rate exceeds vtrunk's threshold, and set a congestion flag accordingly
-        // Choose a new threshold
-        // TODO: differentiate between an end-of-window packet that triggers clones, and actual clones
-        // Two different kinds of workers
-        link_rate_tracker.apply(eg_md.afd.vlink_id, eg_md.afd.drop_withheld,
-                                eg_md.afd.scaled_pkt_len, eg_md.afd.bytes_sent_all,
-                                eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
-                                vlink_rate, vlink_rate_lo, vlink_rate_hi, 
-                                vlink_demand);
         if (eg_md.afd.is_worker == 0) {
+            link_rate_tracker.apply(eg_md.afd.vlink_id, eg_md.afd.drop_withheld,
+                                    eg_md.afd.scaled_pkt_len, eg_md.afd.bytes_sent_all,
+                                    eg_md.afd.bytes_sent_lo, eg_md.afd.bytes_sent_hi,
+                                    vlink_rate, vlink_rate_lo, vlink_rate_hi, 
+                                    vlink_demand);
             vtrunk_lookup.apply();
             demand_delta = eg_md.afd.vtrunk_threshold - vlink_demand; 
             max_rate_estimator.apply(eg_md.afd.vlink_id,
@@ -275,8 +271,18 @@ control SwitchEgress(
         dump_or_grab_congestion_flag.apply();
 
         if (eg_md.afd.is_worker == 1) {
-            // TODO: recirculate eg_md.afd.new_threshold to every ingress pipe
+            // Fake ethernet header signals to ingress that this is an update
+            hdr.fake_ethernet.setValid();
+            hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
+            hdr.fake_ethernet.src_addr = 48w0;
+            hdr.fake_ethernet.dst_addr = 48w0;
+            // The update
+            hdr.afd_update.setValid();
+            hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
+            hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
+            hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
         }
+        // TODO: recirculate to every ingress pipe, not just one.
     }
 }
 
