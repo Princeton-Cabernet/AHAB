@@ -26,7 +26,6 @@ control RateEnforcer(in byterate_t measured_rate,
     // TODO: ensure candidates are not corrupted when only dropping during congestion
 
     Random<drop_prob_t>() rng;
-    byterate_t shift_table_key;
     //drop_prob_t rng_output;
     drop_prob_t drop_probability = 0;     // set by lookup table to 1 - min(1, threshold / measured_rate)
     drop_prob_t drop_probability_lo = 0;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
@@ -158,18 +157,26 @@ control RateEnforcer(in byterate_t measured_rate,
         drop_flag_mid = get_flop_drop_flag_mid_regact.execute(0);
     }
     @hidden
+    action unset_drop_flag_mid() {
+        drop_flag_mid = 0;
+    }
+    @hidden
     table get_drop_flag_mid {
         key = {
-            flipflop: exact;
+            mid_exceeded_flag : exact;
+            flipflop : exact;
         }
         actions = {
             get_flip_drop_flag_mid;
             get_flop_drop_flag_mid;
+            unset_drop_flag_mid;
         }
-        size = 2;
+        size = 4;
         const entries = {
-            0 : get_flip_drop_flag_mid();
-            1 : get_flop_drop_flag_mid();
+            (0, 0) : unset_drop_flag_mid();
+            (0, 1) : unset_drop_flag_mid();
+            (1, 0) : get_flip_drop_flag_mid();
+            (1, 1) : get_flop_drop_flag_mid();
         }
     }
     // Lo drop flag table
@@ -182,18 +189,26 @@ control RateEnforcer(in byterate_t measured_rate,
         drop_flag_lo = get_flop_drop_flag_lo_regact.execute(0);
     }
     @hidden
+    action unset_drop_flag_lo() {
+        drop_flag_lo = 0;
+    }
+    @hidden
     table get_drop_flag_lo {
         key = {
-            flipflop: exact;
+            lo_exceeded_flag : exact;
+            flipflop : exact;
         }
         actions = {
             get_flip_drop_flag_lo;
             get_flop_drop_flag_lo;
+            unset_drop_flag_lo;
         }
-        size = 2;
+        size = 4;
         const entries = {
-            0 : get_flip_drop_flag_lo();
-            1 : get_flop_drop_flag_lo();
+            (0, 0) : unset_drop_flag_lo();
+            (0, 1) : unset_drop_flag_lo();
+            (1, 0) : get_flip_drop_flag_lo();
+            (1, 1) : get_flop_drop_flag_lo();
         }
     }
     // Hi drop flag table
@@ -206,19 +221,91 @@ control RateEnforcer(in byterate_t measured_rate,
         drop_flag_hi = get_flop_drop_flag_hi_regact.execute(0);
     }
     @hidden
+    action unset_drop_flag_hi() {
+        drop_flag_hi = 0;
+    }
+    @hidden
     table get_drop_flag_hi {
         key = {
-            flipflop: exact;
+            hi_exceeded_flag : exact;
+            flipflop : exact;
         }
         actions = {
             get_flip_drop_flag_hi;
             get_flop_drop_flag_hi;
+            unset_drop_flag_hi;
+        }
+        size = 4;
+        const entries = {
+            (0, 0) : unset_drop_flag_hi();
+            (0, 1) : unset_drop_flag_hi();
+            (1, 0) : get_flip_drop_flag_hi();
+            (1, 1) : get_flop_drop_flag_hi();
+        }
+    }
+
+    
+    // difference (candidate - measured_rate) for each candidate
+    byterate_t dthresh_lo;
+    byterate_t dthresh_mid;
+    byterate_t dthresh_hi;
+
+    // Flags to mark if each candidate was exceeded
+    bit<1> lo_exceeded_flag = 0;
+    bit<1> mid_exceeded_flag = 0;
+    bit<1> hi_exceeded_flag = 0;
+
+
+// width of this key and mask should equal sizeof(byterate_t)
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+
+    action set_lo_exceeded_flag(bit<1> flag) { 
+        lo_exceeded_flag = flag;
+    }
+    table check_lo_exceeded { 
+        key = {
+            dthresh_lo  : ternary;
+        }
+        actions = {
+            set_lo_exceeded_flag;
         }
         size = 2;
         const entries = {
-            0 : get_flip_drop_flag_hi();
-            1 : get_flop_drop_flag_hi();
+            (TERNARY_NEG_CHECK) : set_lo_exceeded_flag(1);
         }
+        default_action = set_lo_exceeded_flag(0);
+    }
+    action set_mid_exceeded_flag(bit<1> flag) { 
+        mid_exceeded_flag = flag;
+    }
+    table check_mid_exceeded { 
+        key = {
+            dthresh_mid  : ternary;
+        }
+        actions = {
+            set_mid_exceeded_flag;
+        }
+        size = 2;
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_mid_exceeded_flag(1);
+        }
+        default_action = set_mid_exceeded_flag(0);
+    }
+    action set_hi_exceeded_flag(bit<1> flag) { 
+        hi_exceeded_flag = flag;
+    }
+    table check_hi_exceeded { 
+        key = {
+            dthresh_hi  : ternary;
+        }
+        actions = {
+            set_hi_exceeded_flag;
+        }
+        size = 2;
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_hi_exceeded_flag(1);
+        }
+        default_action = set_hi_exceeded_flag(0);
     }
 
 
@@ -236,7 +323,7 @@ control RateEnforcer(in byterate_t measured_rate,
     */
 	table shift_measured_rate {
 		key = {
-            shift_table_key: ternary;
+            measured_rate: ternary;
         }
 		actions = {
 #include "actions_and_entries/shift_measured_rate/action_list.p4inc"
@@ -314,19 +401,28 @@ control RateEnforcer(in byterate_t measured_rate,
         }
 	}
 
-	action choose_shift_table_key_act() {
-        	shift_table_key = max<byterate_t>(threshold_hi, measured_rate);
-	}
-	table choose_shift_table_key_tbl {
-		key = {}
-		actions = { choose_shift_table_key_act; }
-		default_action = choose_shift_table_key_act();
-		size = 1;
-	}
-		
+    action calculate_threshold_differences_act() {
+        dthresh_lo  = threshold_lo - measured_rate;
+        dthresh_mid = threshold_mid - measured_rate;
+        dthresh_hi  = threshold_hi - measured_rate;
+    }
+    table calculate_threshold_differences_tbl {
+        key = {}
+        actions = {
+            calculate_threshold_differences_act;
+        }
+        size = 1;
+        default_action = calculate_threshold_differences_act;
+    }
 
-	apply {
-        choose_shift_table_key_tbl.apply();
+    apply {
+        // Check if each of the threshold candidates were exceeded. If a candidate is not exceeded,
+        // the drop flag is set to 0. This resolves a bug where rounding candidates for use as a key in
+        // the division lookup table was truncating higher bits and leading to incorrect drops in many cases
+        calculate_threshold_differences_tbl.apply();
+        check_lo_exceeded.apply();
+        check_mid_exceeded.apply();
+        check_hi_exceeded.apply();
         // Approximate rates as narrower integers for use in the lookup tables
         shift_measured_rate.apply();
         // Lookup tables for true and simulated drop probabilities.
