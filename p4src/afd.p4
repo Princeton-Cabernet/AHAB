@@ -46,14 +46,34 @@ control SwitchIngress(
     RateEstimator() rate_estimator;
     RateEnforcer() rate_enforcer;
     ByteDumps() byte_dumps;
+    WorkerGeneration() worker_generation;
 
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
+        if (is_mirrored_pkt) {
+            // A freshly mirrored packet doesn't need to do anything in ingress.
+            // It needs to go to egress to pick up the new thresold.
+            // TODO: move mirroring to egress
+            exit; 
+        }
 
-        // this is regular workflow, not considering recirculation for now
-        // TODO: recirculation dumps new thresholds into vlink_lookup
         vlink_lookup.apply(hdr, ig_md.afd);
+
+        if (is_recirculated_pkt) {
+            // A recirculated packet's only job is to write a new threshold,
+            // which happens in vlink_lookup.
+            ig_dprsr_md.drop_ctl = 1;
+            exit;
+        }
+
+        bit<1> work_flag;
+        worker_generation.apply(epoch, ig_md.afd.vlink_id, work_flag);
+        if (work_flag == 1) {
+            mirror_to_recirculation_port(); // TODO
+        }
+
+        // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
                              hdr.ipv4.dst_addr,
                              hdr.ipv4.protocol,
@@ -63,7 +83,7 @@ control SwitchIngress(
                              ig_md.afd.measured_rate);
 
 
-
+        // Get real drop flag and two simulated drop flags
         bit<1> afd_drop_flag_lo;
         bit<1> afd_drop_flag;
         bit<1> afd_drop_flag_hi;
