@@ -24,7 +24,7 @@ def build_write_packet(id, thres):
 def build_read_packet(id):
     return Ether(
             src=int_to_mac(0),
-            dst=int_to_mac(65536+0)#not worker
+            dst=int_to_mac(65536+0)#not worke
     )/IP(
         id=id,#IPID is used as testcase ID
     )/UDP()
@@ -36,7 +36,7 @@ testcase_list=[
     {"thres":x}
     for x in [
         0, 50, 70
-        ]+list(range(100,2000,50))+[5000,90000,1300000,290000000,  0]
+        ]+list(range(100,2000,50))+[5000,90000,1300000,14000000, 150000000, 1600000000,  0]
 ]
 
 testcase_input_map={
@@ -48,7 +48,17 @@ testcase_ans_map={idx:None for idx,case in enumerate(testcase_list)}
 def summarize_results():
     for idx,ans in testcase_ans_map.items():
         thres=testcase_list[idx]['thres']
-        print(thres,' got',ans)
+        #print(thres,' got',ans)
+        lo,mid,hi,vlid,dpow=ans
+
+        STAT='???'
+        if mid-lo==2**dpow and hi-mid==2**dpow:
+            STAT=' GOOD'
+        if mid!=thres:
+            STAT=' THRES MISMATCH'
+        line=f'{thres:15d} got:   {lo:20d} {mid:20d} {hi:20d} {dpow:2d}   vlid={vlid}' + STAT
+        print(line)
+
 
 iface='veth0'
 def sniff_thread(iface, num_wait,end_event):
