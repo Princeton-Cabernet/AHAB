@@ -18,9 +18,8 @@ typedef bit<5> exponent_t;
 
 
 typedef bit<8> packet_type_t;
-const packet_type_t NORMAL = 0;
-const packet_type_t MIRROR = 1;
-const packet_type_t RECIRCULATED = 2;
+const packet_type_t PKT_TYPE_NORMAL = 0;
+const packet_type_t PKT_TYPEMIRROR = 1;
 
 
 #if __TARGET_TOFINO__ == 1
