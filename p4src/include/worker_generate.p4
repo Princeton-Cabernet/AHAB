@@ -1,4 +1,5 @@
-control WorkerGeneration() {
+control WorkerGeneration(inout afd_metadata_t afd_md) {
+    //reads vlink_id and epoch, generate is_worker for the first packet in new epoch
     @hidden
     Register<epoch_t, vlink_index_t>(NUM_VLINKS) last_worker_epoch;
     RegisterAction<epoch_t, vlink_index_t, bit<1>>(last_worker_epoch) choose_to_work = {
@@ -15,6 +16,7 @@ control WorkerGeneration() {
     action choose_to_work_act() {
         afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
     }
+    bit<1> dummy_bit=0;
     @hidden
     table choose_to_work_tbl {
         key = { dummy_bit : exact; }
