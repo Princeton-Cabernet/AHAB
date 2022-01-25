@@ -31,10 +31,21 @@ control RateEnforcer(in byterate_t measured_rate,
     drop_prob_t drop_probability_lo = 0;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
     drop_prob_t drop_probability_hi = 0;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
 
+    // Approximate division lookup table keys
     shifted_rate_t measured_rate_shifted;
     shifted_rate_t threshold_lo_shifted;
     shifted_rate_t threshold_shifted;
     shifted_rate_t threshold_hi_shifted;
+    
+    // difference (candidate - measured_rate) for each candidate
+    byterate_t dthresh_lo;
+    byterate_t dthresh_mid;
+    byterate_t dthresh_hi;
+
+    // Flags to mark if each candidate was exceeded
+    bit<1> lo_exceeded_flag = 0;
+    bit<1> mid_exceeded_flag = 0;
+    bit<1> hi_exceeded_flag = 0;
     
     @hidden
     Register<bit<8>, bit<8>>(32) flipflop_reg;
@@ -243,17 +254,6 @@ control RateEnforcer(in byterate_t measured_rate,
             (1, 1) : get_flop_drop_flag_hi();
         }
     }
-
-    
-    // difference (candidate - measured_rate) for each candidate
-    byterate_t dthresh_lo;
-    byterate_t dthresh_mid;
-    byterate_t dthresh_hi;
-
-    // Flags to mark if each candidate was exceeded
-    bit<1> lo_exceeded_flag = 0;
-    bit<1> mid_exceeded_flag = 0;
-    bit<1> hi_exceeded_flag = 0;
 
 
 // width of this key and mask should equal sizeof(byterate_t)
