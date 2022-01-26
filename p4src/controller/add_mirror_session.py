@@ -11,7 +11,7 @@ import bfrt_grpc.client as gc
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
 parser.add_argument('-p','--port', type=int, help='Egress port the mirror session will clone to', default=68)
-parser.add_argument('-s','--id', type=int, help='Mirror session ID. Set this to the hardcoded one in afd.p4', default=50)
+parser.add_argument('-s','--sid', type=int, help='Mirror session ID. Set this to the hardcoded one in afd.p4', default=50)
 args=parser.parse_args()
 
 
