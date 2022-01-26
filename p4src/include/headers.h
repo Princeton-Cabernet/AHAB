@@ -7,7 +7,7 @@ typedef bit<32> ipv4_addr_t;
 typedef bit<16> ether_type_t;
 const ether_type_t ETHERTYPE_IPV4 = 16w0x0800;
 const ether_type_t ETHERTYPE_VLAN = 16w0x0810;
-const ether_type_t ETHERTYPE_THRESHOLD_UDPATE = 16w0x0901;
+const ether_type_t ETHERTYPE_THRESHOLD_UPDATE = 16w0x0901;
 
 typedef bit<8> ip_protocol_t;
 const ip_protocol_t IP_PROTOCOLS_ICMP = 1;

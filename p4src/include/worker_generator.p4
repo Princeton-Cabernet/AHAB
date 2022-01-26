@@ -1,5 +1,5 @@
-control WorkerGeneration(in epoch_t curr_epoch,
-                         in vlink_inex_t vlink_id,
+control WorkerGenerator(in epoch_t curr_epoch,
+                         in vlink_index_t vlink_id,
                          out bit<1> work_flag) {
     //reads vlink_id and epoch, generate is_worker for the first packet in new epoch
     @hidden

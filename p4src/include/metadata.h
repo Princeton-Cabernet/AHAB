@@ -3,8 +3,9 @@
 #include "define.h"
 
 @pa_auto_init_metadata
+@flexible
 struct afd_metadata_t {
-    bridged_metdata_type_t  bmd_type;  // This has to be first for parser lookahead
+    bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
     epoch_t                 epoch;
     vtrunk_index_t          vtrunk_id;
@@ -31,6 +32,8 @@ struct afd_metadata_t {
 @pa_auto_init_metadata
 struct ig_metadata_t {
     afd_metadata_t afd;  //  has to come first
+
+    MirrorId_t mirror_session;
 
     bit<16> sport;
     bit<16> dport;

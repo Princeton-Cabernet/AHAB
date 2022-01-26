@@ -3,10 +3,10 @@
 #include <core.p4>
 #include <tna.p4>
 
+#include "include/define.h"
 #include "include/headers.h"
 #include "include/metadata.h"
 #include "include/parsers.h"
-#include "include/define.h"
 
 #include "include/vlink_lookup.p4"
 #include "include/rate_estimator.p4"
@@ -15,6 +15,7 @@
 #include "include/max_rate_estimator.p4"
 #include "include/link_rate_tracker.p4"
 #include "include/byte_dumps.p4"
+#include "include/worker_generator.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -46,7 +47,7 @@ control SwitchIngress(
     RateEstimator() rate_estimator;
     RateEnforcer() rate_enforcer;
     ByteDumps() byte_dumps;
-    WorkerGeneration() worker_generation;
+    WorkerGenerator() worker_generator;
 
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
@@ -62,11 +63,11 @@ control SwitchIngress(
         }
 
         bit<1> work_flag;
-        worker_generation.apply(epoch, ig_md.afd.vlink_id, work_flag);
+        worker_generator.apply(epoch, ig_md.afd.vlink_id, work_flag);
         if (work_flag == 1) {
             // A mirrored packet will be generated during deparsing
             ig_dprsr_md.mirror_type = MIRROR_TYPE_I2E;
-            ig_md.ing_mir_ses = THRESHOLD_UPDATE_MIRROR_SESSION;
+            ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
         } 
 
         // Approximately measure this flow's instantaneous rate.

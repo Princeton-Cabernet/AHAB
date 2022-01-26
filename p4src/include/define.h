@@ -2,7 +2,7 @@
 
 // An I2E mirror session that mirrors packets to the recirculation port
 // Must be installed by the control plane before it will work!
-#define THRESHOLD_UPDATE_MIRROR_SESSION 5
+#define THRESHOLD_UPDATE_MIRROR_SESSION  10w50
 
 #define bytecount_t_width 32
 #define byterate_t_width 32

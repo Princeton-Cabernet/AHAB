@@ -34,7 +34,7 @@ parser SwitchIngressParser(
 
     state start {
         tofino_parser.apply(pkt, ig_md, ig_intr_md);
-        ig_md.bmd_type = BMD_TYPE_I2E;
+        ig_md.afd.bmd_type = BMD_TYPE_I2E;
         transition parse_ethernet;
     }
 
@@ -102,11 +102,11 @@ control SwitchIngressDeparser(
     apply {
 
 
-        if (ig_dprsr_md.mirror_type == MIRROR_TYPE_I2E) {
+        if (ig_intr_dprsr_md.mirror_type == MIRROR_TYPE_I2E) {
             // The mirror_h header provided as the second argument to emit()
             // will become the first header on the mirrored packet.
             // The egress parser will check for that header
-            mirror.emit<mirror_h>(ig_md.ig_mir_ses, 
+            mirror.emit<mirror_h>(ig_md.mirror_session, 
                                   {BMD_TYPE_MIRROR, ig_md.afd.vlink_id});
         }
 
@@ -151,7 +151,7 @@ parser SwitchEgressParser(
     }
 
     state parse_bridged_md {
-        pkt.extact(eg_md.afd);
+        pkt.extract(eg_md.afd);
         transition accept;
     }
 
