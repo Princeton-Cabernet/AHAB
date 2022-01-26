@@ -63,8 +63,8 @@ control SwitchIngress(
 	
 	if(f_mid==1){drop();} 
 	hdr.ethernet.src_addr[31:0]=sketch_output;
-	hdr.ethernet.src_addr[47:40]=(bit<8>) t_lo;
-	hdr.ethernet.src_addr[39:32]=(bit<8>) t_hi;
+	hdr.ethernet.src_addr[47:40]=(bit<8>) f_lo;
+	hdr.ethernet.src_addr[39:32]=(bit<8>) f_hi;
 
 	testbed_route();
     }
