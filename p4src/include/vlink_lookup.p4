@@ -2,9 +2,6 @@
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
                     out bit<9> ucast_egress_port) {
-    byterate_t threshold_delta_minus = 0;
-
-
     @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
@@ -154,27 +151,12 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
     // So the new lo and hi fair rate thresholds will be roughly +- 50%
     @hidden
-    action lo_boundary_compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
-        // At the low boundary, the low candidate equals the mid (current) candidate
+    action compute_candidates_act(byterate_t candidate_delta, byterate_t candidate_delta_negative, exponent_t candidate_delta_pow) {
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
-        threshold_delta_minus = 0;  // indirect due to a tofino limitation
+
         afd_md.threshold_hi = afd_md.threshold + candidate_delta;
-    }
-    @hidden
-    action hi_boundary_compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
-        // At the high boundary, the high candidate equals the mid (current) candidate
-        afd_md.candidate_delta     = candidate_delta;
-        afd_md.candidate_delta_pow = candidate_delta_pow;
-        threshold_delta_minus = candidate_delta;  // indirect subtraction for tofino
-        afd_md.threshold_hi = afd_md.threshold;
-    }
-    @hidden
-    action compute_candidates_act(byterate_t candidate_delta, exponent_t candidate_delta_pow) {
-        afd_md.candidate_delta     = candidate_delta;
-        afd_md.candidate_delta_pow = candidate_delta_pow;
-        threshold_delta_minus = candidate_delta;  // indirect subtraction for tofino
-        afd_md.threshold_hi = afd_md.threshold + candidate_delta;
+	afd_md.threshold_lo = afd_md.threshold + candidate_delta_negative;
     }
     @hidden
     table compute_candidates {
@@ -182,9 +164,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             afd_md.threshold : ternary; // find the highest bit
         }
         actions = {
-            lo_boundary_compute_candidates_act;
             compute_candidates_act;
-            hi_boundary_compute_candidates_act;
         }
         size = 32;
         /*
@@ -192,66 +172,46 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         lowest = 10
         highest = 20
         for i in range(lowest, highest+1):
-            act_str = "compute_candidates_act(%d, %d)" % (1 << (i-1), (i-1))
+            pos_delta=(1 << (i-1) )
+            neg_delta=-pos_delta 
             if i == lowest:
-                act_str = "lo_boundary_" + act_str
+                neg_delta=0
             if i == highest:
-                act_str = "hi_boundary_" + act_str
+                pos_delta=0;
+            act_str = "compute_candidates_act(%d, %d, %d)" % (pos_delta, neg_deltf Truea, (i-1))
             print("(0x%x &&& 0x%x): %s;" % (1 << i, (0xffffffff << i) & 0xffffffff, act_str))
 
         */
         // TODO: Maybe this table shouldn't be constant/hidden. 
         //       We may want to change the range of thresholds at runtime.
         const entries = {
-            (0x20 &&& 0xffffffe0): lo_boundary_compute_candidates_act(16, 4);
-            (0x40 &&& 0xffffffc0): compute_candidates_act(32, 5);
-            (0x80 &&& 0xffffff80): compute_candidates_act(64, 6);
-            (0x100 &&& 0xffffff00): compute_candidates_act(128, 7);
-            (0x200 &&& 0xfffffe00): compute_candidates_act(256, 8);
-            (0x400 &&& 0xfffffc00): compute_candidates_act(512, 9);
-            (0x800 &&& 0xfffff800): compute_candidates_act(1024, 10);
-            (0x1000 &&& 0xfffff000): compute_candidates_act(2048, 11);
-            (0x2000 &&& 0xffffe000): compute_candidates_act(4096, 12);
-            (0x4000 &&& 0xffffc000): compute_candidates_act(8192, 13);
-            (0x8000 &&& 0xffff8000): compute_candidates_act(16384, 14);
-            (0x10000 &&& 0xffff0000): compute_candidates_act(32768, 15);
-            (0x20000 &&& 0xfffe0000): compute_candidates_act(65536, 16);
-            (0x40000 &&& 0xfffc0000): compute_candidates_act(131072, 17);
-            (0x80000 &&& 0xfff80000): compute_candidates_act(262144, 18);
-            (0x100000 &&& 0xfff00000): compute_candidates_act(524288, 19);
-            (0x200000 &&& 0xffe00000): compute_candidates_act(1048576, 20);
-            (0x400000 &&& 0xffc00000): compute_candidates_act(2097152, 21);
-            (0x800000 &&& 0xff800000): compute_candidates_act(4194304, 22);
-            (0x1000000 &&& 0xff000000): hi_boundary_compute_candidates_act(8388608, 23);
+            (0x20 &&& 0xffffffe0): compute_candidates_act(16, 0 ,4);
+            (0x40 &&& 0xffffffc0): compute_candidates_act(32, -32, 5);
+            (0x80 &&& 0xffffff80): compute_candidates_act(64, -64, 6);
+            (0x100 &&& 0xffffff00): compute_candidates_act(128, -128, 7);
+            (0x200 &&& 0xfffffe00): compute_candidates_act(256, -256, 8);
+            (0x400 &&& 0xfffffc00): compute_candidates_act(512, -512, 9);
+            (0x800 &&& 0xfffff800): compute_candidates_act(1024, -1024, 10);
+            (0x1000 &&& 0xfffff000): compute_candidates_act(2048, -2048, 11);
+            (0x2000 &&& 0xffffe000): compute_candidates_act(4096, -4096, 12);
+            (0x4000 &&& 0xffffc000): compute_candidates_act(8192, -8192, 13);
+            (0x8000 &&& 0xffff8000): compute_candidates_act(16384, -16384, 14);
+            (0x10000 &&& 0xffff0000): compute_candidates_act(32768, -32768, 15);
+            (0x20000 &&& 0xfffe0000): compute_candidates_act(65536, -65536, 16);
+            (0x40000 &&& 0xfffc0000): compute_candidates_act(131072, -131072,17);
+            (0x80000 &&& 0xfff80000): compute_candidates_act(262144, -262144,18);
+            (0x100000 &&& 0xfff00000): compute_candidates_act(524288, -524288,19);
+            (0x200000 &&& 0xffe00000): compute_candidates_act(1048576, -1048576,20);
+            (0x400000 &&& 0xffc00000): compute_candidates_act(2097152, -2097152,21);
+            (0x800000 &&& 0xff800000): compute_candidates_act(4194304, -4194304,22);
+            (0x1000000 &&& 0xff000000): compute_candidates_act(0,-8388608, 23);
         }
     }
-
-    int<1> dummy = 0;
-    @hidden
-    action indirect_sub_act() {
-            afd_md.threshold_lo = afd_md.threshold - threshold_delta_minus;
-    }
-    @hidden
-    table indirect_sub_tbl {
-        key = {
-            dummy: exact;
-        }
-        actions = {
-            indirect_sub_act;
-        }
-        const entries = {
-            0 : indirect_sub_act();
-        }
-        default_action = indirect_sub_act();
-        size = 1;
-    }
-
 
 	apply {
         tb_match_ip.apply();
         read_or_write_congestion_flag.apply();
         read_or_write_threshold.apply();
         compute_candidates.apply();
-        indirect_sub_tbl.apply();
 	}
 }

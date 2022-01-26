@@ -3,10 +3,10 @@
 #include <core.p4>
 #include <tna.p4>
 
+#include "../include/define.h"
 #include "../include/headers.h"
 #include "../include/metadata.h"
 #include "../include/parsers.h"
-#include "../include/define.h"
 
 #include "../include/vlink_lookup.p4"
 
@@ -37,8 +37,8 @@ control SwitchIngress(
 	afd_md.vlink_id=(vlink_index_t) hdr.ipv4.ttl;
 	afd_md.new_threshold=hdr.ipv4.dst_addr;
 	isw();
-
-	vlink_lookup.apply(hdr,afd_md);
+	bit<9> dummy_egress;
+	vlink_lookup.apply(hdr,afd_md, dummy_egress);
 
 	hdr.ethernet.src_addr=(bit<48>)afd_md.threshold;
 	hdr.ipv4.src_addr=afd_md.threshold_lo;
