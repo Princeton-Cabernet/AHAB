@@ -40,32 +40,14 @@ control SwitchIngress(
     apply {
 	bytecount_t sketch_input=(bytecount_t) hdr.ipv4.total_len;
 	byterate_t sketch_output=0;
-
-	//assert UDP
-	if(hdr.udp.isValid()){
-		estimator.apply(
-			hdr.ipv4.src_addr,hdr.ipv4.dst_addr,hdr.ipv4.protocol,
-			hdr.udp.src_port,hdr.udp.dst_port,
-			sketch_input,sketch_output	
-		);	
-	}else if(hdr.tcp.isValid()){
-		estimator.apply(
-			hdr.ipv4.src_addr,hdr.ipv4.dst_addr,hdr.ipv4.protocol,
-			hdr.tcp.src_port,hdr.tcp.dst_port,
-			sketch_input,sketch_output	
-		);	
-	}else {
-		estimator.apply(
-			hdr.ipv4.src_addr,hdr.ipv4.dst_addr,hdr.ipv4.protocol,
-			0,0,
-			sketch_input,sketch_output	
-		);	
-	}
-
+	
+        estimator.apply(
+		hdr.ipv4.src_addr, hdr.ipv4.dst_addr, hdr.ipv4.protocol,
+		ig_md.sport, ig_md.dport,
+		sketch_input, sketch_output);
 	// Fixed rate limit of 10Mbps
 	// at default config (rate mode, 1e6 decay, 1 scale), the limit is about 1200
 
-	byterate_t measured_rate = sketch_input;
 	byterate_t t_lo=1000*10;
 	byterate_t t_mid=1200*10;
 	byterate_t t_hi=1400*10;
@@ -75,7 +57,7 @@ control SwitchIngress(
         bit<1> f_mid=1;
         bit<1> f_hi=1;
 
-        enforcer.apply(measured_rate,
+        enforcer.apply(sketch_output,
                 t_lo,t_mid,t_hi,
                 f_lo,f_mid,f_hi);
 	
