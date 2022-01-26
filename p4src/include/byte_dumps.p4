@@ -46,7 +46,11 @@ control ByteDumps(in vlink_index_t vlink_id,
     }
     @hidden
     action dump_lo_bytes() {
-        dump_lo_bytes_regact.execute(vlink_id);
+        pkt_len_lo = dump_lo_bytes_regact.execute(vlink_id);
+    }
+    @hidden 
+    action nop_lo(){
+        pkt_len_lo = 0;
     }
     @hidden
     table dump_or_grab_lo_bytes {
@@ -58,12 +62,13 @@ control ByteDumps(in vlink_index_t vlink_id,
             dump_lo_bytes;
             grab_lo_bytes;
             combine_lo_bytes;
+            nop_lo;
         }
         const entries = {
             (1, 0) : dump_lo_bytes();
             (0, 0) : combine_lo_bytes();
             (0, 1) : grab_lo_bytes();
-            // (1,1) : no_action();
+            (1, 1) : nop_lo();
         }
         size = 4;
     }
@@ -97,7 +102,11 @@ control ByteDumps(in vlink_index_t vlink_id,
     }
     @hidden
     action dump_hi_bytes() {
-        dump_hi_bytes_regact.execute(vlink_id);
+        pkt_len_hi = dump_hi_bytes_regact.execute(vlink_id);
+    }
+    @hidden 
+    action nop_hi(){
+        pkt_len_hi = 0;
     }
     // TODO: Do we need this? Given our current method for computing drop flags,
     //       it will never be the case that mid drops but hi doesn't.
@@ -111,12 +120,13 @@ control ByteDumps(in vlink_index_t vlink_id,
             dump_hi_bytes;
             grab_hi_bytes;
             combine_hi_bytes;
+            nop_hi;
         }
         const entries = {
             (1, 0) : dump_hi_bytes();
             (0, 0) : combine_hi_bytes();
             (0, 1) : grab_hi_bytes();
-            // (1,1) : no_action();
+            (1, 1) : nop_hi();
         }
         size = 4;
     }
@@ -140,7 +150,7 @@ control ByteDumps(in vlink_index_t vlink_id,
     }
     @hidden
     action dump_all_bytes() {
-        dump_all_bytes_regact.execute(vlink_id);
+        pkt_len_all = dump_all_bytes_regact.execute(vlink_id);
     }
     @hidden
     table dump_or_grab_all_bytes {
