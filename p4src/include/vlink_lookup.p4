@@ -1,6 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
+control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
+                    out bit<9> ucast_egress_port) {
     byterate_t threshold_delta_minus = 0;
 
 
@@ -79,41 +80,55 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
         }
         size = 2;
     }
+	action set_vlink_default() {
+		afd_md.vlink_id = 0;
+		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+                ucast_egress_port = hdr.ipv4.dst_addr[8:0];
+	}
 	action set_vlink_rshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 2);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_rshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 1);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_noshift(vlink_index_t i) {
 		afd_md.vlink_id = i;
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 1);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 2);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift3(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 3);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift4(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 4);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift5(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 5);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift6(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 6);
+		ucast_egress_port = i[8:0];
 	}
 	table tb_match_ip{
         key = {
@@ -129,8 +144,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
             set_vlink_lshift4;
             set_vlink_lshift5;
             set_vlink_lshift6;
+            set_vlink_default;
         }
-        default_action = set_vlink_noshift(0);
+        default_action = set_vlink_default();
         size = 1024;
     }
 

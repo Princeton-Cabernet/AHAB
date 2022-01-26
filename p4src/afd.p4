@@ -52,7 +52,7 @@ control SwitchIngress(
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
-        vlink_lookup.apply(hdr, ig_md.afd);
+        vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port);
 
         if (ig_md.afd.is_worker == 1) {
             // If is_worker is already set, then this packet was a recirculation.
@@ -107,12 +107,11 @@ control SwitchIngress(
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
                              ig_md.afd.bytes_sent_all);
+		if (afd_drop_flag == 1) {
+		    // TODO: send to low-priority queue instead of outright dropping
+		    ig_dprsr_md.drop_ctl = 1;
+		}
         }
-        if (afd_drop_flag == 1) {
-            // TODO: send to low-priority queue instead of outright dropping
-            ig_dprsr_md.drop_ctl = 1;
-        }
-        // TODO: bridge afd metadata
 
     }
 }
