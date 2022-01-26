@@ -51,6 +51,7 @@ parser SwitchIngressParser(
         pkt.extract(hdr.afd_update);
 
         // Place the update fields where control vlink_lookup expects them
+	ig_md.afd.setValid();
         ig_md.afd.new_threshold = hdr.afd_update.new_threshold;
         ig_md.afd.vlink_id = hdr.afd_update.vlink_id;
         ig_md.afd.congestion_flag = hdr.afd_update.congestion_flag;
@@ -62,6 +63,8 @@ parser SwitchIngressParser(
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
+	ig_md.afd.setValid();
+        ig_md.afd.is_worker = 0;
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
             IP_PROTOCOLS_UDP : parse_udp;

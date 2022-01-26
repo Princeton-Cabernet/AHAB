@@ -53,15 +53,8 @@ control SwitchIngress(
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
-        vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port);
-
-        if (ig_md.afd.is_worker == 1) {
-            // If is_worker is already set, then this packet was a recirculation.
-            // A recirculated packet's only job is to write a new threshold,
-            // which just happened in vlink_lookup, so time to drop.
-            ig_dprsr_md.drop_ctl = 1;
-            exit;
-        }
+	// If the packet is a recirculated update, it will not survive vlink_lookup.
+        vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl);
 
         bit<1> work_flag;
         worker_generator.apply(epoch, ig_md.afd.vlink_id, work_flag);
@@ -93,8 +86,8 @@ control SwitchIngress(
                             afd_drop_flag_lo,
                             afd_drop_flag,
                             afd_drop_flag_hi);
-        // If congestion flag is false, dropping is disabled
         if (ig_md.afd.congestion_flag == 0) {
+	    // If congestion flag is false, dropping is disabled
             ig_md.afd.drop_withheld = afd_drop_flag;
             afd_drop_flag = 0;
         } else { // Dropping is enabled

@@ -1,7 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
-                    out bit<9> ucast_egress_port) {
+                    out bit<9> ucast_egress_port, out bit<3> drop_ctl) {
     @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
@@ -26,15 +26,15 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     @hidden
     table read_or_write_congestion_flag {
         key = {
-            afd_md.is_worker : exact;
+	    hdr.afd_update.isValid() : exact;
         }
         actions = {
             write_congestion_flag;
             read_congestion_flag;
         }
         const entries = {
-            1 : write_congestion_flag();
-            0 : read_congestion_flag();
+            true : write_congestion_flag();
+            false : read_congestion_flag();
         }
         size = 2;
     }
@@ -65,15 +65,15 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     @hidden
     table read_or_write_threshold {
         key = {
-            afd_md.is_worker : exact;
+            hdr.afd_update.isValid() : exact;
         }
         actions = {
             read_stored_threshold_act;
             write_stored_threshold_act;
         }
         const entries = {
-            0: read_stored_threshold_act();
-            1: write_stored_threshold_act();
+            true: read_stored_threshold_act();
+            false: write_stored_threshold_act();
         }
         size = 2;
     }
@@ -208,10 +208,21 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         }
     }
 
-	apply {
-        tb_match_ip.apply();
+    apply {
+        if (!hdr.afd_update.isValid()) {
+            tb_match_ip.apply();
+	}
+
         read_or_write_congestion_flag.apply();
         read_or_write_threshold.apply();
-        compute_candidates.apply();
-	}
+
+        if (hdr.afd_update.isValid()) {
+	    // A recirculated packet's only job is to write a new threshold,
+            // which just happened in those previous two tables, so time to drop.
+            drop_ctl = 1;
+            exit;
+        } else {
+            compute_candidates.apply();
+        }
+    }
 }
