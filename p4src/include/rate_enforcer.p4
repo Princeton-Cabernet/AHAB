@@ -38,9 +38,9 @@ control RateEnforcer(in byterate_t measured_rate,
     shifted_rate_t threshold_hi_shifted;
     
     // difference (candidate - measured_rate) for each candidate
-    byterate_t dthresh_lo;
-    byterate_t dthresh_mid;
-    byterate_t dthresh_hi;
+    byterate_t dthresh_lo = 0;
+    byterate_t dthresh_mid = 0;
+    byterate_t dthresh_hi = 0;
 
     // Flags to mark if each candidate was exceeded
     bit<1> lo_exceeded_flag = 0;
@@ -259,9 +259,11 @@ control RateEnforcer(in byterate_t measured_rate,
 // width of this key and mask should equal sizeof(byterate_t)
 #define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
 
+    @hidden
     action set_lo_exceeded_flag(bit<1> flag) { 
         lo_exceeded_flag = flag;
     }
+    @hidden
     table check_lo_exceeded { 
         key = {
             dthresh_lo  : ternary;
@@ -275,9 +277,11 @@ control RateEnforcer(in byterate_t measured_rate,
         }
         default_action = set_lo_exceeded_flag(0);
     }
+    @hidden
     action set_mid_exceeded_flag(bit<1> flag) { 
         mid_exceeded_flag = flag;
     }
+    @hidden
     table check_mid_exceeded { 
         key = {
             dthresh_mid  : ternary;
@@ -291,9 +295,11 @@ control RateEnforcer(in byterate_t measured_rate,
         }
         default_action = set_mid_exceeded_flag(0);
     }
+    @hidden
     action set_hi_exceeded_flag(bit<1> flag) { 
         hi_exceeded_flag = flag;
     }
+    @hidden
     table check_hi_exceeded { 
         key = {
             dthresh_hi  : ternary;

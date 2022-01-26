@@ -85,6 +85,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         const entries = {
 #include "actions_and_entries/shift_lookup_output/const_entries.p4inc"
         }
+        size = 512;
     }
 
 
@@ -100,6 +101,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         const entries = {
 #include "actions_and_entries/shift_lookup_output_stage2/const_entries.p4inc"
         }
+	size = 16;
     }
 
 

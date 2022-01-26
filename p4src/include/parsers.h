@@ -134,8 +134,7 @@ parser SwitchEgressParser(
         transition select(common_md.bmd_type) {
             BMD_TYPE_MIRROR : parse_mirror_md;
             BMD_TYPE_I2E    : parse_bridged_md;
-            default : parse_bridged_md;
-            // TODO: do default: accept;. why isnt BMD_TYPE_I2E triggered?
+            default : accept;
         }
     }
     
@@ -147,13 +146,54 @@ parser SwitchEgressParser(
         eg_md.afd.bmd_type = mirror_md.bmd_type;
         eg_md.afd.vlink_id = mirror_md.vlink_id;
         
-        transition accept;
+        transition parse_ethernet;
     }
 
     state parse_bridged_md {
         pkt.extract(eg_md.afd);
+        transition parse_ethernet;
+    }
+
+    state parse_ethernet {
+        pkt.extract(hdr.ethernet);
+        transition select (hdr.ethernet.ether_type) {
+            ETHERTYPE_IPV4 : parse_ipv4;
+            default : reject;
+        }
+    }
+
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+        transition select(hdr.ipv4.protocol) {
+            IP_PROTOCOLS_TCP : parse_tcp;
+            IP_PROTOCOLS_UDP : parse_udp;
+            default : parse_unknown_l4;
+        }
+    }
+
+    state parse_tcp {
+        pkt.extract(hdr.tcp);
+        eg_md.sport = hdr.tcp.src_port;
+        eg_md.dport = hdr.tcp.dst_port;
         transition accept;
     }
+
+    state parse_udp {
+        pkt.extract(hdr.udp);
+        eg_md.sport = hdr.udp.src_port;
+        eg_md.dport = hdr.udp.dst_port;
+        transition accept;
+    }
+
+    state parse_unknown_l4 {
+        eg_md.sport = 0;
+        eg_md.dport = 0;
+        transition accept;
+    }
+
+
+
+
 
 }
 
@@ -165,5 +205,10 @@ control SwitchEgressDeparser(
     apply {
         pkt.emit(hdr.fake_ethernet);  // signals to ingress that this is an update
         pkt.emit(hdr.afd_update);  // header contains update values
+	// Normal headers
+        pkt.emit(hdr.ethernet);
+        pkt.emit(hdr.ipv4);
+        pkt.emit(hdr.tcp);
+        pkt.emit(hdr.udp);
     }
 }

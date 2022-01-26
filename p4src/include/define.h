@@ -20,12 +20,12 @@ typedef bit<8> epoch_t;
 typedef bit<16> vlink_index_t;
 typedef bit<8> vtrunk_index_t;
 
-typedef bit<5> exponent_t;
+typedef bit<8> exponent_t;
 
 
 typedef bit<8> bridged_metadata_type_t;
 const bridged_metadata_type_t BMD_TYPE_INVALID = 0;
-const bridged_metadata_type_t BMD_TYPE_I2E = 1;
+const bridged_metadata_type_t BMD_TYPE_I2E = 0xa;
 const bridged_metadata_type_t BMD_TYPE_MIRROR = 2;
 
 typedef bit<3> mirror_type_t;
