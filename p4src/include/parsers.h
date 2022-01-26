@@ -34,6 +34,7 @@ parser SwitchIngressParser(
 
     state start {
         tofino_parser.apply(pkt, ig_md, ig_intr_md);
+	ig_md.afd.setValid();
         ig_md.afd.bmd_type = BMD_TYPE_I2E;
         transition parse_ethernet;
     }
@@ -51,7 +52,6 @@ parser SwitchIngressParser(
         pkt.extract(hdr.afd_update);
 
         // Place the update fields where control vlink_lookup expects them
-	ig_md.afd.setValid();
         ig_md.afd.new_threshold = hdr.afd_update.new_threshold;
         ig_md.afd.vlink_id = hdr.afd_update.vlink_id;
         ig_md.afd.congestion_flag = hdr.afd_update.congestion_flag;
@@ -63,7 +63,6 @@ parser SwitchIngressParser(
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
-	ig_md.afd.setValid();
         ig_md.afd.is_worker = 0;
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
@@ -103,8 +102,6 @@ control SwitchIngressDeparser(
     Mirror() mirror;
 
     apply {
-
-
         if (ig_intr_dprsr_md.mirror_type == MIRROR_TYPE_I2E) {
             // The mirror_h header provided as the second argument to emit()
             // will become the first header on the mirrored packet.
@@ -137,14 +134,14 @@ parser SwitchEgressParser(
         transition select(common_md.bmd_type) {
             BMD_TYPE_MIRROR : parse_mirror_md;
             BMD_TYPE_I2E    : parse_bridged_md;
-            default : accept;
+            default : parse_bridged_md;
+            // TODO: do default: accept;. why isnt BMD_TYPE_I2E triggered?
         }
     }
     
     state parse_mirror_md {
         mirror_h mirror_md;
         pkt.extract(mirror_md);
-
         eg_md.afd.is_worker = 1;
         // Move mirrored header fields to their expected locations.
         eg_md.afd.bmd_type = mirror_md.bmd_type;
