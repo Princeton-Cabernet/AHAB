@@ -34,6 +34,7 @@ parser SwitchIngressParser(
 
     state start {
         tofino_parser.apply(pkt, ig_md, ig_intr_md);
+        ig_md.bmd_type = BMD_TYPE_I2E;
         transition parse_ethernet;
     }
 
@@ -102,9 +103,11 @@ control SwitchIngressDeparser(
 
 
         if (ig_dprsr_md.mirror_type == MIRROR_TYPE_I2E) {
-            // mirror the contents of a mirror_h header
+            // The mirror_h header provided as the second argument to emit()
+            // will become the first header on the mirrored packet.
+            // The egress parser will check for that header
             mirror.emit<mirror_h>(ig_md.ig_mir_ses, 
-                                  {ig_md.afd.pkt_type, ig_md.afd.vlink_id});
+                                  {BMD_TYPE_MIRROR, ig_md.afd.vlink_id});
         }
 
         pkt.emit(ig_md.afd);  // bridge the AFD metadata to egress
@@ -127,10 +130,10 @@ parser SwitchEgressParser(
     }
 
     state parse_metadata {
-        mirror_h mirror_md = pkt.lookahead<mirror_h>();
-        transition select(mirror_md.pkt_type) {
-            PKT_TYPE_MIRROR : parse_mirror_md;
-            PKT_TYPE_NORMAL : parse_bridged_md;
+        mirror_h common_md = pkt.lookahead<mirror_h>();
+        transition select(common_md.bmd_type) {
+            BMD_TYPE_MIRROR : parse_mirror_md;
+            BMD_TYPE_I2E    : parse_bridged_md;
             default : accept;
         }
     }
@@ -141,7 +144,7 @@ parser SwitchEgressParser(
 
         eg_md.afd.is_worker = 1;
         // Move mirrored header fields to their expected locations.
-        eg_md.afd.packet_type = mirror_md.pkt_type;
+        eg_md.afd.bmd_type = mirror_md.bmd_type;
         eg_md.afd.vlink_id = mirror_md.vlink_id;
         
         transition accept;
@@ -161,6 +164,6 @@ control SwitchEgressDeparser(
         in egress_intrinsic_metadata_for_deparser_t eg_intr_md_for_dprsr) {
     apply {
         pkt.emit(hdr.fake_ethernet);  // signals to ingress that this is an update
-        pkt.emit(hdr.afd_update);  // update values
+        pkt.emit(hdr.afd_update);  // header contains update values
     }
 }

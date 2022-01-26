@@ -1,5 +1,9 @@
 #pragma once
 
+// An I2E mirror session that mirrors packets to the recirculation port
+// Must be installed by the control plane before it will work!
+#define THRESHOLD_UPDATE_MIRROR_SESSION 5
+
 #define bytecount_t_width 32
 #define byterate_t_width 32
 #define NUM_VLINKS 4096
@@ -19,15 +23,12 @@ typedef bit<8> vtrunk_index_t;
 typedef bit<5> exponent_t;
 
 
-typedef bit<8> packet_type_t;
-const packet_type_t PKT_TYPE_NORMAL = 0;
-const packet_type_t PKT_TYPEMIRROR = 1;
+typedef bit<8> bridged_metadata_type_t;
+const bridged_metadata_type_t BMD_TYPE_INVALID = 0;
+const bridged_metadata_type_t BMD_TYPE_I2E = 1;
+const bridged_metadata_type_t BMD_TYPE_MIRROR = 2;
 
-
-#if __TARGET_TOFINO__ == 1
 typedef bit<3> mirror_type_t;
-#else
-typedef bit<4> mirror_type_t;
-#endif
+const mirror_type_t MIRROR_TYPE_INVALID = 0;
 const mirror_type_t MIRROR_TYPE_I2E = 1;
-const mirror_type_t MIRROR_TYPE_E2E = 2;
+

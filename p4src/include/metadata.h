@@ -4,9 +4,9 @@
 
 @pa_auto_init_metadata
 struct afd_metadata_t {
-    packet_type_t           pkt_type;  // This has to be first for parser lookahead
-    epoch_t                 epoch;
+    bridged_metdata_type_t  bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
+    epoch_t                 epoch;
     vtrunk_index_t          vtrunk_id;
     byterate_t              measured_rate;
     byterate_t              threshold;
@@ -30,7 +30,7 @@ struct afd_metadata_t {
 
 @pa_auto_init_metadata
 struct ig_metadata_t {
-    afd_metadata_t afd;
+    afd_metadata_t afd;  //  has to come first
 
     bit<16> sport;
     bit<16> dport;
@@ -38,5 +38,5 @@ struct ig_metadata_t {
 
 @pa_auto_init_metadata
 struct eg_metadata_t {
-    afd_metadata_t afd;
+    afd_metadata_t afd;  //  has to come first
 }

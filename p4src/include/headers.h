@@ -31,7 +31,7 @@ header afd_recirc_h {
 }
 // Header for mirrored packets from ingress to egress
 header mirror_h {
-    packet_type_t   pkt_type;
+    bridged_metadata_type_t bmd_type;
     vlink_index_t   vlink_id;
 }
 

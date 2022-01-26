@@ -64,12 +64,10 @@ control SwitchIngress(
         bit<1> work_flag;
         worker_generation.apply(epoch, ig_md.afd.vlink_id, work_flag);
         if (work_flag == 1) {
+            // A mirrored packet will be generated during deparsing
             ig_dprsr_md.mirror_type = MIRROR_TYPE_I2E;
-            ig_md.afd.pkt_type = PKT_TYPE_MIRROR;
             ig_md.ing_mir_ses = THRESHOLD_UPDATE_MIRROR_SESSION;
-        } else {
-            ig_md.afd.pkt_type = PKT_TYPE_NORMAL;
-        }
+        } 
 
         // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
