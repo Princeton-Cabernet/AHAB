@@ -1,8 +1,47 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
-#define DEFAULT_THRESHOLD 1024
 
-control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
+control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
+                    out bit<9> ucast_egress_port) {
     byterate_t threshold_delta_minus = 0;
+
+
+    @hidden
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
+            stored_flag = afd_md.congestion_flag;
+        }
+    };
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) read_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+            returned_flag = stored_flag;
+        }
+    };
+    @hidden
+    action write_congestion_flag() {
+        write_congestion_flag_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    action read_congestion_flag() {
+        afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
+    }
+
+    @hidden
+    table read_or_write_congestion_flag {
+        key = {
+            afd_md.is_worker : exact;
+        }
+        actions = {
+            write_congestion_flag;
+            read_congestion_flag;
+        }
+        const entries = {
+            1 : write_congestion_flag();
+            0 : read_congestion_flag();
+        }
+        size = 2;
+    }
+
 
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
@@ -29,7 +68,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
     @hidden
     table read_or_write_threshold {
         key = {
-            afd_md.is_worker : exact; // TODO: set the is_worker flag on recirculation
+            afd_md.is_worker : exact;
         }
         actions = {
             read_stored_threshold_act;
@@ -41,60 +80,75 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
         }
         size = 2;
     }
+	action set_vlink_default() {
+		afd_md.vlink_id = 0;
+		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+                ucast_egress_port = hdr.ipv4.dst_addr[8:0];
+	}
 	action set_vlink_rshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 2);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_rshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len >> 1);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_noshift(vlink_index_t i) {
 		afd_md.vlink_id = i;
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift1(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 1);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift2(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 2);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift3(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 3);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift4(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 4);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift5(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 5);
+		ucast_egress_port = i[8:0];
 	}
 	action set_vlink_lshift6(vlink_index_t i){
 		afd_md.vlink_id=i;
 		afd_md.scaled_pkt_len=(bytecount_t) (hdr.ipv4.total_len << 6);
+		ucast_egress_port = i[8:0];
 	}
 	table tb_match_ip{
-		key = {
+        key = {
             hdr.ipv4.dst_addr: lpm;
         }
-		actions = {
-			set_vlink_rshift2;
-			set_vlink_rshift1;
-			set_vlink_noshift;
-			set_vlink_lshift1;
-			set_vlink_lshift2;
-			set_vlink_lshift3;
-			set_vlink_lshift4;
-			set_vlink_lshift5;
-			set_vlink_lshift6;
-		}
-		default_action = set_vlink_noshift(0);
-		size = 1024;
-	}
+        actions = {
+            set_vlink_rshift2;
+            set_vlink_rshift1;
+            set_vlink_noshift;
+            set_vlink_lshift1;
+            set_vlink_lshift2;
+            set_vlink_lshift3;
+            set_vlink_lshift4;
+            set_vlink_lshift5;
+            set_vlink_lshift6;
+            set_vlink_default;
+        }
+        default_action = set_vlink_default();
+        size = 1024;
+    }
 
 
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
@@ -194,9 +248,10 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 
 
 	apply {
-		tb_match_ip.apply();
+        tb_match_ip.apply();
+        read_or_write_congestion_flag.apply();
         read_or_write_threshold.apply();
-		compute_candidates.apply();
-		indirect_sub_tbl.apply();
+        compute_candidates.apply();
+        indirect_sub_tbl.apply();
 	}
 }

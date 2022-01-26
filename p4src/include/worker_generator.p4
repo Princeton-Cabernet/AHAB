@@ -1,20 +1,22 @@
-control WorkerGeneration(inout afd_metadata_t afd_md) {
+control WorkerGenerator(in epoch_t curr_epoch,
+                         in vlink_index_t vlink_id,
+                         out bit<1> work_flag) {
     //reads vlink_id and epoch, generate is_worker for the first packet in new epoch
     @hidden
     Register<epoch_t, vlink_index_t>(NUM_VLINKS) last_worker_epoch;
     RegisterAction<epoch_t, vlink_index_t, bit<1>>(last_worker_epoch) choose_to_work = {
-        void apply(inout epoch_t stored_epoch, out bit<1> time_to_work) {
-            if (stored_epoch == afd_md.epoch) {
-                time_to_work = 1w0;
+        void apply(inout epoch_t stored_epoch, out bit<1> get_to_work) {
+            if (stored_epoch == curr_epoch) {
+                get_to_work = 1w0;
             } else {
-                time_to_work = 1w1;
-                stored_epoch = afd_md.epoch;
+                get_to_work = 1w1;
+                stored_epoch = curr_epoch;
             }
         }
     };
     @hidden
     action choose_to_work_act() {
-        afd_md.is_worker = choose_to_work.execute(afd_md.vlink_id);
+        work_flag = choose_to_work.execute(vlink_id);
     }
     bit<1> dummy_bit=0;
     @hidden

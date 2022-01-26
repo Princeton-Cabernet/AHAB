@@ -3,9 +3,11 @@
 #include "define.h"
 
 @pa_auto_init_metadata
-struct afd_metadata_t {
-    epoch_t                 epoch;
+@flexible
+header afd_metadata_t {
+    bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
+    epoch_t                 epoch;
     vtrunk_index_t          vtrunk_id;
     byterate_t              measured_rate;
     byterate_t              threshold;
@@ -21,20 +23,24 @@ struct afd_metadata_t {
     bytecount_t             bytes_sent_all;  // packet size for total demand simulation
 
     byterate_t              new_threshold;
-    bit<1>                  is_worker;
-    bit<1>                  congestion_flag;
+    bit<1>                  is_worker;  // Set by parser. Do not write in MATs
+    bit<8>                  congestion_flag;
     bit<1>                  drop_withheld;
     byterate_t              max_rate;
 }
 
 @pa_auto_init_metadata
 struct ig_metadata_t {
-    afd_metadata_t afd;
+    afd_metadata_t afd;  //  has to come first
+
+    MirrorId_t mirror_session;
+    bridged_metadata_type_t mirror_bmd_type;
+
     bit<16> sport;
     bit<16> dport;
 }
 
 @pa_auto_init_metadata
 struct eg_metadata_t {
-    afd_metadata_t afd;
+    afd_metadata_t afd;  //  has to come first
 }
