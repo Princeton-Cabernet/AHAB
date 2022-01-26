@@ -68,6 +68,7 @@ control SwitchIngress(
             // A mirrored packet will be generated during deparsing
             ig_dprsr_md.mirror_type = MIRROR_TYPE_I2E;
             ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
+            ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
         } 
 
         // Approximately measure this flow's instantaneous rate.
@@ -188,19 +189,19 @@ control SwitchEgress(
 
     byterate_t demand_delta; 
     @hidden
-    Register<bit<1>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) set_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag) {
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) set_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
 	    stored_flag = 1;
         }
     };
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) unset_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag) {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) unset_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
 	    stored_flag = 0;
         }
     };
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) grab_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) grab_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
             returned_flag = stored_flag;
         }
     };

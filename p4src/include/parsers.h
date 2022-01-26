@@ -107,7 +107,7 @@ control SwitchIngressDeparser(
             // will become the first header on the mirrored packet.
             // The egress parser will check for that header
             mirror.emit<mirror_h>(ig_md.mirror_session, 
-                                  {BMD_TYPE_MIRROR, ig_md.afd.vlink_id});
+                                  {ig_md.mirror_bmd_type, ig_md.afd.vlink_id});
         }
 
         pkt.emit(ig_md.afd);  // bridge the AFD metadata to egress

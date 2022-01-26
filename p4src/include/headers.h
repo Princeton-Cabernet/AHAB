@@ -26,8 +26,7 @@ const tcp_flags_t TCP_FLAGS_A = 16;
 header afd_recirc_h {
     vlink_index_t vlink_id;
     byterate_t new_threshold;
-    bit<1> congestion_flag;
-    bit<7> padding;
+    bit<8> congestion_flag;
 }
 // Header for mirrored packets from ingress to egress
 header mirror_h {

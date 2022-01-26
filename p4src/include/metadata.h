@@ -4,7 +4,7 @@
 
 @pa_auto_init_metadata
 @flexible
-struct afd_metadata_t {
+header afd_metadata_t {
     bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
     epoch_t                 epoch;
@@ -24,7 +24,7 @@ struct afd_metadata_t {
 
     byterate_t              new_threshold;
     bit<1>                  is_worker;  // Set by parser. Do not write in MATs
-    bit<1>                  congestion_flag;
+    bit<8>                  congestion_flag;
     bit<1>                  drop_withheld;
     byterate_t              max_rate;
 }
@@ -34,6 +34,7 @@ struct ig_metadata_t {
     afd_metadata_t afd;  //  has to come first
 
     MirrorId_t mirror_session;
+    bridged_metadata_type_t mirror_bmd_type;
 
     bit<16> sport;
     bit<16> dport;

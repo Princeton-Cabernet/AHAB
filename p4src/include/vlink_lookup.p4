@@ -5,14 +5,14 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md) {
 
 
     @hidden
-    Register<bit<1>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) write_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag) {
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
             stored_flag = afd_md.congestion_flag;
         }
     };
-    RegisterAction<bit<1>, vlink_index_t, bit<1>>(congestion_flags) read_congestion_flag_regact = {
-        void apply(inout bit<1> stored_flag, out bit<1> returned_flag) {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) read_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
             returned_flag = stored_flag;
         }
     };
