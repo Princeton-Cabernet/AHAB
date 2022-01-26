@@ -1,6 +1,8 @@
 #pragma once
 // Standard headers for Ethernet, IPv4, TCP, and UDP
 
+#include "define.h"
+
 //== Constants
 typedef bit<48> mac_addr_t;
 typedef bit<32> ipv4_addr_t;
