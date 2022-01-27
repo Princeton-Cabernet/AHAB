@@ -3,6 +3,7 @@
 #include "define.h"
 
 @pa_auto_init_metadata
+@pa_no_overlay
 header afd_metadata_t {
     bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
@@ -31,6 +32,7 @@ header afd_metadata_t {
 }
 
 @pa_auto_init_metadata
+@pa_no_overlay
 struct ig_metadata_t {
     afd_metadata_t afd;  //  has to come first
 
@@ -42,6 +44,7 @@ struct ig_metadata_t {
 }
 
 @pa_auto_init_metadata
+@pa_no_overlay
 struct eg_metadata_t {
     afd_metadata_t afd;  //  has to come first
     bit<16> sport;
