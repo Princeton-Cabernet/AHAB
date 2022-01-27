@@ -92,7 +92,7 @@ control SwitchIngress(
             ig_md.afd.drop_withheld = afd_drop_flag_mid;
             afd_drop_flag_mid = 0;
         } 
-        
+
         //always dump
         { // Dropping is enabled
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
@@ -281,8 +281,9 @@ table save_congestion_flag {
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
-            hdr.fake_ethernet.src_addr = (bit<48>) vlink_rate;
-            hdr.fake_ethernet.dst_addr = (bit<48>) vlink_demand;
+            hdr.fake_ethernet.src_addr = (bit<48>) eg_md.afd.new_threshold;
+            hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) eg_md.afd.vlink_id;
+            hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) eg_md.afd.congestion_flag;
             // The update
             hdr.afd_update.setValid();
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
