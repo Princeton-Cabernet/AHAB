@@ -186,13 +186,17 @@ control SwitchEgress(
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
-            hdr.fake_ethernet.src_addr = 48w0;
-            hdr.fake_ethernet.dst_addr = 48w0;
+            hdr.fake_ethernet.src_addr = 48w0xaaaaaaaaaaaa;
+            hdr.fake_ethernet.dst_addr = 48w0xbbbbbbbbbbbb;
             // The update
             hdr.afd_update.setValid();
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
             hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
+            hdr.afd_update.marker1 = 0xaa;
+            hdr.afd_update.marker2 = 0xbb;
+            hdr.afd_update.marker3 = 0xcc;
+            hdr.afd_update.marker4 = 0xdd;
         }else{
             hdr.fake_ethernet.setInvalid();
             hdr.afd_update.setInvalid();

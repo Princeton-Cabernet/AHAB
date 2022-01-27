@@ -26,9 +26,13 @@ const tcp_flags_t TCP_FLAGS_A = 16;
 //== Special Headers
 // Header for sending updates from egress to ingress
 header afd_recirc_h {
+    bit<8> marker1;  // for debugging
     vlink_index_t vlink_id;
+    bit<8> marker2;  // debug
     byterate_t new_threshold;
+    bit<8> marker3;  // debug
     bit<8> congestion_flag;
+    bit<8> marker4;  // debug
 }
 // Header for mirrored packets from ingress to egress
 header mirror_h {
