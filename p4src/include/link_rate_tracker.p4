@@ -56,7 +56,7 @@ control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
     // Track total demand
     @hidden
     action rate_all_act() {
-        total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
+        vlink_demand = total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
     }
     @hidden
     table rate_all_tbl {
