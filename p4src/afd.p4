@@ -207,8 +207,8 @@ table naive_interpolate {
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
-            hdr.fake_ethernet.src_addr = 48w0;
-            hdr.fake_ethernet.dst_addr = 48w0;
+            hdr.fake_ethernet.src_addr = (bit<48>) vlink_rate;
+            hdr.fake_ethernet.dst_addr = (bit<48>) vlink_demand;
             // The update
             hdr.afd_update.setValid();
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
