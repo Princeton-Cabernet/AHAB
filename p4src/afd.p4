@@ -286,9 +286,12 @@ table save_congestion_flag {
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
         }
 
-        hdr.ethernet.src_addr[31:0]=eg_md.afd.new_threshold;
-        hdr.ethernet.src_addr[47:32]=(bit<16>) eg_md.afd.congestion_flag;
-
+        hdr.ethernet.src_addr[31:0]=vlink_rate;
+        @in_hash{
+            hdr.ethernet.src_addr[47:40]=(bit<8>) eg_md.afd.vlink_id;
+            hdr.ethernet.src_addr[39:36]=(bit<4>) eg_md.afd.drop_withheld;
+            hdr.ethernet.src_addr[35:32]=(bit<4>) eg_md.afd.congestion_flag;
+        }
         // TODO: recirculate to every ingress pipe, not just one.
     }
 }

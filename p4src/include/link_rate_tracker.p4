@@ -32,7 +32,7 @@ control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
     }
 
     apply {
-        if(drop_withheld){
+        if(drop_withheld==1){
             rate_act();
         }
         rate_lo_act();
