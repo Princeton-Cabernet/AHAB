@@ -28,7 +28,7 @@ control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
         vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(scaled_pkt_len_hi, vlink_id);
     }
     action rate_all_act() {
-        total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
+        vlink_demand = total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
     }
 
     apply {
