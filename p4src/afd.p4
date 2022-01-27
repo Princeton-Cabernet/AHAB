@@ -77,31 +77,35 @@ control SwitchIngress(
 
         // Get real drop flag and two simulated drop flags
         bit<1> afd_drop_flag_lo;
-        bit<1> afd_drop_flag;
+        bit<1> afd_drop_flag_mid;
         bit<1> afd_drop_flag_hi;
         rate_enforcer.apply(ig_md.afd.measured_rate,
                             ig_md.afd.threshold_lo,
                             ig_md.afd.threshold,
                             ig_md.afd.threshold_hi,
                             afd_drop_flag_lo,
-                            afd_drop_flag,
+                            afd_drop_flag_mid,
                             afd_drop_flag_hi);
+
         if (ig_md.afd.congestion_flag == 0) {
 	    // If congestion flag is false, dropping is disabled
-            ig_md.afd.drop_withheld = afd_drop_flag;
-            afd_drop_flag = 0;
-        } else { // Dropping is enabled
+            ig_md.afd.drop_withheld = afd_drop_flag_mid;
+            afd_drop_flag_mid = 0;
+        } 
+        
+        //always dump
+        { // Dropping is enabled
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
             // simulations to work around true dropping.
             byte_dumps.apply(ig_md.afd.vlink_id,
                              ig_md.afd.scaled_pkt_len,
                              afd_drop_flag_lo,
-                             afd_drop_flag,
+                             afd_drop_flag_mid,
                              afd_drop_flag_hi,
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
                              ig_md.afd.bytes_sent_all);
-            if (afd_drop_flag == 1) {
+            if (afd_drop_flag_mid == 1) {
                 // TODO: send to low-priority queue instead of outright dropping
                 ig_dprsr_md.drop_ctl = 1;
             }
@@ -286,7 +290,7 @@ table save_congestion_flag {
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
         }
 
-        hdr.ethernet.src_addr[31:0]=vlink_rate;
+        hdr.ethernet.src_addr[31:0]=vlink_demand;
         @in_hash{
             hdr.ethernet.src_addr[47:44]=(bit<4>) threshold_minus_rate[31:31];
             hdr.ethernet.src_addr[43:40]=(bit<4>) threshold_minus_demand[31:31];
