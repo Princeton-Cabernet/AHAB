@@ -287,11 +287,15 @@ table save_congestion_flag {
             hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
 
-
-            
-            hdr.fake_ethernet.src_addr = (bit<48>) hdr.afd_update.new_threshold;
-            hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) hdr.afd_update.vlink_id;
-            hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) hdr.afd_update.congestion_flag;
+            @in_hash{
+                hdr.fake_ethernet.src_addr[31:0] = hdr.afd_update.new_threshold;
+            }
+            @in_hash{
+                hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) hdr.afd_update.vlink_id;
+            }
+            @in_hash{
+                hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) hdr.afd_update.congestion_flag;
+            }
         }
 
         hdr.ethernet.src_addr[31:0]=vlink_demand;
