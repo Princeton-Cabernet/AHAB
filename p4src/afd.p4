@@ -91,10 +91,12 @@ control SwitchIngress(
 	    // If congestion flag is false, dropping is disabled
             ig_md.afd.drop_withheld = afd_drop_flag_mid;
             afd_drop_flag_mid = 0;
-        } 
+            ig_dprsr_md.drop_ctl = 0;
+        } else{
+            ig_dprsr_md.drop_ctl = (bit<3>) afd_drop_flag_mid;
+        }
 
         //always dump
-        { // Dropping is enabled
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
             // simulations to work around true dropping.
             byte_dumps.apply(ig_md.afd.vlink_id,
@@ -105,11 +107,7 @@ control SwitchIngress(
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
                              ig_md.afd.bytes_sent_all);
-            if (afd_drop_flag_mid == 1) {
-                // TODO: send to low-priority queue instead of outright dropping
-                ig_dprsr_md.drop_ctl = 1;
-            }
-        }
+
     }
 }
 
