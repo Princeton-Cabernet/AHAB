@@ -144,7 +144,37 @@ control SwitchEgress(
         size = NUM_VTRUNKS;
     }
 
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
+#define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
+#define TERNARY_DONT_CARE 32w0 &&& 32w0
+bit<32> drate;
 
+action choose_lo(){
+    eg_md.afd.new_threshold=vlink_rate_lo;
+}action choose_hi(){
+    eg_md.afd.new_threshold=vlink_rate_hi;
+}action choose_nop(){
+    eg_md.afd.new_threshold=vlink_rate;
+}
+
+table naive_interpolate {
+        key = {
+            drate : ternary;
+        }
+        actions = {
+            choose_lo;
+            choose_nop;
+            choose_hi;
+        }
+        const entries = {
+            (TERNARY_NEG_CHECK) : choose_lo();     
+            (TERNARY_POS_CHECK) : choose_hi();    
+            (TERNARY_ZERO_CHECK) : choose_nop();
+        }
+        size = 8;
+        default_action = choose_nop();  // Something went wrong, stick with the current fair rate threshold
+    }
     apply { 
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
@@ -158,25 +188,16 @@ control SwitchEgress(
                                     vlink_rate_lo, 
                                     vlink_rate_hi, 
                                     vlink_demand);
-            max_rate_estimator.apply(eg_md.afd.vlink_id,
-                                     eg_md.afd.measured_rate,
-                                     eg_md.afd.is_worker,
-                                     eg_md.afd.max_rate);
-            threshold_interpolator.apply(vlink_rate, 
-                                         vlink_rate_lo, 
-                                         vlink_rate_hi,
-                                         eg_md.afd.vtrunk_threshold, 
-                                         eg_md.afd.threshold,
-                                         eg_md.afd.threshold_lo, 
-                                         eg_md.afd.threshold_hi,
-                                         eg_md.afd.candidate_delta_pow,
-                                         eg_md.afd.new_threshold);
+
+            drate    = vlink_rate    - eg_md.afd.vtrunk_threshold;
+
+            naive_interpolate.apply();
         }
         // Load or save congestion flags and new thresholds
         update_storage.apply(eg_md.afd.vlink_id,
                              vlink_demand,
                              eg_md.afd.vtrunk_threshold,
-                             eg_md.afd.max_rate,
+                             0,
                              eg_md.afd.new_threshold,
                              eg_md.afd.is_worker,
                              eg_md.afd.congestion_flag);

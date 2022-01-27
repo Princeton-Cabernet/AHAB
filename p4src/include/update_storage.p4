@@ -107,7 +107,7 @@ control UpdateStorage(in vlink_index_t vlink_id,
         // This prevents the threshold from jumping to infinity during times of underutilization,
         // which improves convergence rate.
         // TODO: should we smooth this out?
-        new_threshold = min<byterate_t>(new_threshold, max_rate);
+        //new_threshold = min<byterate_t>(new_threshold, max_rate);
         // If normal packet, save the new threshold. If a worker packet, load the new one
         dump_or_grab_new_threshold.apply();
         dump_or_grab_congestion_flag.apply();
