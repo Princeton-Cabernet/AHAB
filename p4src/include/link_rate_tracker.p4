@@ -16,60 +16,27 @@ control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
     // Only read by the control plane and used to compute vtrunk_fair_rate
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) total_demand_lpf;
 
-    bit<1> dummy_bit = 0;
-    // Track mid threshold sending rate
-    @hidden
+
+
     action rate_act() {
         vlink_rate = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
     }
-    @hidden
-    table rate_tbl {
-        key = { drop_withheld : exact; }  // Only update the rate if a drop was not meant to happen
-        actions = { rate_act; }
-        const entries = { 1 : rate_act(); }
-        size = 1;
-    }
-    // Track lo threshold sending rate
-    @hidden
     action rate_lo_act() {
         vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(scaled_pkt_len_lo, vlink_id);
     }
-    @hidden
-    table rate_lo_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_lo_act; }
-        const entries = { 0 : rate_lo_act(); }
-        size = 1;
-    }
-    // Track hi threshold sending rate
-    @hidden
     action rate_hi_act() {
         vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(scaled_pkt_len_hi, vlink_id);
     }
-    @hidden
-    table rate_hi_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_hi_act; }
-        const entries = { 0 : rate_hi_act(); }
-        size = 1;
-    }
-    // Track total demand
-    @hidden
     action rate_all_act() {
         total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
     }
-    @hidden
-    table rate_all_tbl {
-        key = { dummy_bit : exact; }
-        actions = { rate_all_act; }
-        const entries = { 0 : rate_all_act(); }
-        size = 1;
-    }
 
     apply {
-        rate_tbl.apply();
-        rate_lo_tbl.apply();
-        rate_hi_tbl.apply();
-        rate_all_tbl.apply();
+        if(drop_withheld){
+            rate_act();
+        }
+        rate_lo_act();
+        rate_hi_act();
+        rate_all_act();
     }
 }
