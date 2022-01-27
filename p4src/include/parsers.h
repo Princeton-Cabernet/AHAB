@@ -57,7 +57,8 @@ parser SwitchIngressParser(
         ig_md.afd.congestion_flag = hdr.afd_update.congestion_flag;
         ig_md.afd.is_worker = 1;
 
-        transition accept;
+        pkt.extract(hdr.fake_ethernet);
+        transition parse_ipv4;
     }
 
 
