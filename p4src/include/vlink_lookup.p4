@@ -23,23 +23,6 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
     }
 
-    @hidden
-    table read_or_write_congestion_flag {
-        key = {
-	    hdr.afd_update.isValid() : exact;
-        }
-        actions = {
-            write_congestion_flag;
-            read_congestion_flag;
-        }
-        const entries = {
-            true : write_congestion_flag();
-            false : read_congestion_flag();
-        }
-        size = 2;
-    }
-
-
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
@@ -62,21 +45,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     action write_stored_threshold_act() {
         write_stored_threshold.execute(afd_md.vlink_id);
     }
-    @hidden
-    table read_or_write_threshold {
-        key = {
-            hdr.afd_update.isValid() : exact;
-        }
-        actions = {
-            read_stored_threshold_act;
-            write_stored_threshold_act;
-        }
-        const entries = {
-            true: read_stored_threshold_act();
-            false: write_stored_threshold_act();
-        }
-        size = 2;
-    }
+
 	action set_vlink_default() {
 		afd_md.vlink_id = 0;
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
@@ -156,7 +125,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         afd_md.candidate_delta_pow = candidate_delta_pow;
 
         afd_md.threshold_hi = afd_md.threshold + candidate_delta;
-	afd_md.threshold_lo = afd_md.threshold + candidate_delta_negative;
+        afd_md.threshold_lo = afd_md.threshold + candidate_delta_negative;
     }
     @hidden
     table compute_candidates {
@@ -211,18 +180,14 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     apply {
         if (!hdr.afd_update.isValid()) {
             tb_match_ip.apply();
-	}
-
-        read_or_write_congestion_flag.apply();
-        read_or_write_threshold.apply();
-
-        if (hdr.afd_update.isValid()) {
-	    // A recirculated packet's only job is to write a new threshold,
-            // which just happened in those previous two tables, so time to drop.
+            read_congestion_flag();
+            read_stored_threshold_act();
+            compute_candidates.apply();
+        }else{
+            write_congestion_flag();
+            write_stored_threshold_act();
             drop_ctl = 1;
             exit;
-        } else {
-            compute_candidates.apply();
         }
     }
 }
