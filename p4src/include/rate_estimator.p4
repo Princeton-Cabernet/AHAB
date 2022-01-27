@@ -26,8 +26,6 @@ control RateEstimator(in bit<32> src_ip,
     cms_index_t index2_;
     cms_index_t index3_;
 
-    bit<1> dummy_bit = 0;
-
     action get_index1_(){
         index1_ = hash_1.get({ src_ip,
                              dst_ip,

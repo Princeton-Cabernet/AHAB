@@ -54,13 +54,16 @@ control SwitchIngress(
     DropControl() drop_control;
 
     apply {
+        // Set these mirror fields unconditionally, because they are discarded anyway if mirroring doesn't occur
+        ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
+        ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
+
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
 	    // If the packet is a recirculated update, it will not survive vlink_lookup.
         vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl);
 
-        worker_generator.apply(epoch, ig_md.afd.vlink_id, ig_dprsr_md.mirror_type, 
-                               ig_md.mirror_session, ig_md.mirror_bmd_type);
+        worker_generator.apply(epoch, ig_md.afd.vlink_id, ig_dprsr_md.mirror_type);
 
         // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
