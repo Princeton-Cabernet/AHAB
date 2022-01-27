@@ -20,6 +20,8 @@ control SwitchIngress(
         inout ingress_intrinsic_metadata_for_tm_t ig_tm_md) {
 
     VLinkLookup() vlink_lookup;
+    //VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
+    //      out bit<9> ucast_egress_port, out bit<3> drop_ctl)
 
     action reflect(){
         //send you back to where you're from
@@ -29,30 +31,31 @@ control SwitchIngress(
     afd_metadata_t afd_md;
 
     action isw(){
-	@in_hash{afd_md.is_worker= hdr.ethernet.dst_addr[0:0] ^ hdr.ethernet.dst_addr[1:1];}
+        @in_hash{afd_md.is_worker= hdr.ethernet.dst_addr[0:0] ^ hdr.ethernet.dst_addr[1:1];}
     }
 
     apply {
 
-	afd_md.vlink_id=(vlink_index_t) hdr.ipv4.ttl;
-	afd_md.new_threshold=hdr.ipv4.dst_addr;
-	isw();
-	bit<9> dummy_egress;
-	vlink_lookup.apply(hdr,afd_md, dummy_egress);
+        afd_md.vlink_id=(vlink_index_t) hdr.ipv4.ttl;
+        afd_md.new_threshold=hdr.ipv4.dst_addr;
+        isw();
+    bit<9> dummy_egress;
+    bit<9> dummy_drop;
+        vlink_lookup.apply(hdr,afd_md, dummy_egress, dummy_drop);
 
-	hdr.ethernet.src_addr=(bit<48>)afd_md.threshold;
-	hdr.ipv4.src_addr=afd_md.threshold_lo;
-	hdr.ipv4.dst_addr=afd_md.threshold_hi;
-	
-	hdr.ipv4.ttl=(bit<8>) afd_md.vlink_id;
-	hdr.ipv4.diffserv=(bit<8>) afd_md.candidate_delta_pow;
+        hdr.ethernet.src_addr=(bit<48>)afd_md.threshold;
+        hdr.ipv4.src_addr=afd_md.threshold_lo;
+        hdr.ipv4.dst_addr=afd_md.threshold_hi;
+        
+        hdr.ipv4.ttl=(bit<8>) afd_md.vlink_id;
+        hdr.ipv4.diffserv=(bit<8>) afd_md.candidate_delta_pow;
 
-	if(afd_md.is_worker==1){
-		hdr.ethernet.dst_addr=48w0xaabbccddeeff;
-	}else{
-		hdr.ethernet.dst_addr=0;
-	}
-	reflect();
+        if(afd_md.is_worker==1){
+                hdr.ethernet.dst_addr=48w0xaabbccddeeff;
+        }else{
+                hdr.ethernet.dst_addr=0;
+        }
+        reflect();
     }
 }
 
