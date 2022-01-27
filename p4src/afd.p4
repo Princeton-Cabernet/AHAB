@@ -187,28 +187,31 @@ table naive_interpolate {
         }
     };
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
-        void apply(inout byterate_t stored) {
+        void apply(inout byterate_t stored, out byterate_t retval) {
             stored = eg_md.afd.new_threshold;
+            retval = stored;
         }
     };
     action grab_new_threshold() {
         eg_md.afd.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
     action dump_new_threshold() {
-        dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
+        eg_md.afd.new_threshold = dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
 
 
 byterate_t threshold_minus_demand; 
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) set_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
         stored_flag = 1;
+        returned_flag = 1;
         }
     };
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) unset_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
         stored_flag = 0;
+        returned_flag = 0;
         }
     };
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) grab_congestion_flag_regact = {
@@ -217,10 +220,10 @@ byterate_t threshold_minus_demand;
         }
     };
     action set_congestion_flag() {
-        set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        eg_md.afd.congestion_flag = set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action unset_congestion_flag() {
-        unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        eg_md.afd.congestion_flag = unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action grab_congestion_flag() {
         eg_md.afd.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
