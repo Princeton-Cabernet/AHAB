@@ -281,14 +281,17 @@ table save_congestion_flag {
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
-            hdr.fake_ethernet.src_addr = (bit<48>) eg_md.afd.new_threshold;
-            hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) eg_md.afd.vlink_id;
-            hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) eg_md.afd.congestion_flag;
             // The update
             hdr.afd_update.setValid();
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
             hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
+
+
+            
+            hdr.fake_ethernet.src_addr = (bit<48>) hdr.afd_update.new_threshold;
+            hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) hdr.afd_update.vlink_id;
+            hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) hdr.afd_update.congestion_flag;
         }
 
         hdr.ethernet.src_addr[31:0]=vlink_demand;
