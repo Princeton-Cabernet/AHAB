@@ -47,8 +47,8 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
 
 	action set_vlink_default() {
-		afd_md.vlink_id = 0;
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+		afd_md.vlink_id = (bit<16>)hdr.ipv4.dst_addr[8:0];
                 ucast_egress_port = hdr.ipv4.dst_addr[8:0];
 	}
 	action set_vlink_rshift2(vlink_index_t i){
