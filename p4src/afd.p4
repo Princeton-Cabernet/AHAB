@@ -148,7 +148,7 @@ control SwitchEgress(
 #define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
 #define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
 #define TERNARY_DONT_CARE 32w0 &&& 32w0
-bit<32> drate;
+bit<32> threshold_minus_rate;
 
 action choose_lo(){
     eg_md.afd.new_threshold=vlink_rate_lo;
@@ -160,7 +160,7 @@ action choose_lo(){
 
 table naive_interpolate {
         key = {
-            drate : ternary;
+            threshold_minus_rate : ternary;
         }
         actions = {
             choose_lo;
@@ -174,7 +174,78 @@ table naive_interpolate {
         }
         size = 8;
         default_action = choose_nop();  // Something went wrong, stick with the current fair rate threshold
+}
+
+
+
+    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) grab_new_threshold_regact = {
+        void apply(inout byterate_t stored, out byterate_t retval) {
+            retval = stored;
+        }
+    };
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
+        void apply(inout byterate_t stored) {
+            stored = eg_md.afd.new_threshold;
+        }
+    };
+    action grab_new_threshold() {
+        eg_md.afd.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
+    action dump_new_threshold() {
+        dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
+    }
+
+
+byterate_t threshold_minus_demand; 
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) set_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
+        stored_flag = 1;
+        }
+    };
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) unset_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag) {
+        stored_flag = 0;
+        }
+    };
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) grab_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+            returned_flag = stored_flag;
+        }
+    };
+    action set_congestion_flag() {
+        set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    action unset_congestion_flag() {
+        unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    action grab_congestion_flag() {
+        eg_md.afd.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+    }
+    action nop_(){}
+
+table save_congestion_flag {
+        key = {
+            threshold_minus_demand : ternary;
+        }
+        actions = {
+            set_congestion_flag;
+            unset_congestion_flag;
+            nop_();
+        }
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_congestion_flag();     
+            (TERNARY_POS_CHECK) : unset_congestion_flag();    
+            (TERNARY_ZERO_CHECK) : unset_congestion_flag();
+        }
+        size = 8;
+        default_action = nop_();  // Something went wrong, stick with the current fair rate threshold
+}
+
+
+
+
     apply { 
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
@@ -189,21 +260,20 @@ table naive_interpolate {
                                     vlink_rate_hi, 
                                     vlink_demand);
 
-            drate    = vlink_rate    - eg_md.afd.vtrunk_threshold;
+            threshold_minus_rate = eg_md.afd.vtrunk_threshold - vlink_rate;
+            threshold_minus_demand = eg_md.afd.vtrunk_threshold - vlink_demand; 
 
             naive_interpolate.apply();
-        }
-        // Load or save congestion flags and new thresholds
-        update_storage.apply(eg_md.afd.vlink_id,
-                             vlink_demand,
-                             eg_md.afd.vtrunk_threshold,
-                             0,
-                             eg_md.afd.new_threshold,
-                             eg_md.afd.is_worker,
-                             eg_md.afd.congestion_flag);
+       
+            dump_new_threshold();
+            save_congestion_flag.apply();
 
-        // Populate recirculation headers
-        if (eg_md.afd.is_worker == 1) {
+            hdr.fake_ethernet.setInvalid();
+            hdr.afd_update.setInvalid();
+        }else{
+            grab_new_threshold();
+            grab_congestion_flag();
+
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
@@ -214,10 +284,11 @@ table naive_interpolate {
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
             hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
-        }else{
-            hdr.fake_ethernet.setInvalid();
-            hdr.afd_update.setInvalid();
         }
+
+        hdr.ethernet.src_addr[31:0]=eg_md.afd.new_threshold;
+        hdr.ethernet.src_addr[47:32]=(bit<16>) eg_md.afd.congestion_flag;
+
         // TODO: recirculate to every ingress pipe, not just one.
     }
 }
