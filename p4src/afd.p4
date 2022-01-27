@@ -145,8 +145,7 @@ control SwitchEgress(
     }
 
 
-    apply {
-        byterate_t demand_delta = 0;  
+    apply { 
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
@@ -159,7 +158,6 @@ control SwitchEgress(
                                     vlink_rate_lo, 
                                     vlink_rate_hi, 
                                     vlink_demand);
-            demand_delta = eg_md.afd.vtrunk_threshold - vlink_demand; 
             max_rate_estimator.apply(eg_md.afd.vlink_id,
                                      eg_md.afd.measured_rate,
                                      eg_md.afd.is_worker,
@@ -195,6 +193,9 @@ control SwitchEgress(
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
             hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
             hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
+        }else{
+            hdr.fake_ethernet.setInvalid();
+            hdr.afd_update.setInvalid();
         }
         // TODO: recirculate to every ingress pipe, not just one.
     }
