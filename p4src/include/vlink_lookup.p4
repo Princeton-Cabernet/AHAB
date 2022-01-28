@@ -2,7 +2,6 @@
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
                     out bit<9> ucast_egress_port, out bit<3> drop_ctl) {
-    @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag) {
@@ -14,11 +13,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             returned_flag = stored_flag;
         }
     };
-    @hidden
     action write_congestion_flag() {
         write_congestion_flag_regact.execute(afd_md.vlink_id);
     }
-    @hidden
     action read_congestion_flag() {
         afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
     }
@@ -37,11 +34,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             stored_threshold = afd_md.new_threshold;
         }
     };
-    @hidden
     action read_stored_threshold_act() {
         afd_md.threshold = read_stored_threshold.execute(afd_md.vlink_id);
     }
-    @hidden
     action write_stored_threshold_act() {
         write_stored_threshold.execute(afd_md.vlink_id);
     }
@@ -119,7 +114,6 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
 
     // candidate_delta will be the largest power of 2 that is smaller than threshold/2
     // So the new lo and hi fair rate thresholds will be roughly +- 50%
-    @hidden
     action compute_candidates_act(byterate_t candidate_delta, byterate_t candidate_delta_negative, exponent_t candidate_delta_pow) {
         afd_md.candidate_delta     = candidate_delta;
         afd_md.candidate_delta_pow = candidate_delta_pow;
@@ -127,7 +121,6 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         afd_md.threshold_hi = afd_md.threshold + candidate_delta;
         afd_md.threshold_lo = afd_md.threshold + candidate_delta_negative;
     }
-    @hidden
     table compute_candidates {
         key = {
             afd_md.threshold : ternary; // find the highest bit
@@ -178,11 +171,12 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
 
     apply {
-        if (!hdr.afd_update.isValid()) {
+        if (afd_md.is_worker==0) {
             tb_match_ip.apply();
             read_congestion_flag();
             read_stored_threshold_act();
             compute_candidates.apply();
+            drop_ctl = 0;
         }else{
             write_congestion_flag();
             write_stored_threshold_act();
