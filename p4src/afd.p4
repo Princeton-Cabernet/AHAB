@@ -17,6 +17,7 @@
 #include "include/byte_dumps.p4"
 #include "include/worker_generator.p4"
 #include "include/update_storage.p4"
+#include "include/detect_congestion.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -51,19 +52,16 @@ control SwitchIngress(
     WorkerGenerator() worker_generator;
 
     apply {
+        // Set these mirror fields unconditionally, because they are discarded anyway if mirroring doesn't occur
+        ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
+        ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
+
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
 
-	// If the packet is a recirculated update, it will not survive vlink_lookup.
+	    // If the packet is a recirculated update, it will not survive vlink_lookup.
         vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl);
 
-        bit<1> work_flag;
-        worker_generator.apply(epoch, ig_md.afd.vlink_id, work_flag);
-        if (work_flag == 1) {
-            // A mirrored packet will be generated during deparsing
-            ig_dprsr_md.mirror_type = MIRROR_TYPE_I2E;
-            ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
-            ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
-        } 
+        worker_generator.apply(epoch, ig_md.afd.vlink_id, ig_dprsr_md.mirror_type);
 
         // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
@@ -86,26 +84,22 @@ control SwitchIngress(
                             afd_drop_flag_lo,
                             afd_drop_flag,
                             afd_drop_flag_hi);
-        if (ig_md.afd.congestion_flag == 0) {
-	    // If congestion flag is false, dropping is disabled
-            ig_md.afd.drop_withheld = afd_drop_flag;
-            afd_drop_flag = 0;
-        } else { // Dropping is enabled
-            // Deposit or pick up packet bytecounts to allow the lo/hi drop
-            // simulations to work around true dropping.
-            byte_dumps.apply(ig_md.afd.vlink_id,
-                             ig_md.afd.scaled_pkt_len,
-                             afd_drop_flag_lo,
-                             afd_drop_flag,
-                             afd_drop_flag_hi,
-                             ig_md.afd.bytes_sent_lo,
-                             ig_md.afd.bytes_sent_hi,
-                             ig_md.afd.bytes_sent_all);
-            if (afd_drop_flag == 1) {
-                // TODO: send to low-priority queue instead of outright dropping
-                ig_dprsr_md.drop_ctl = 1;
-            }
+
+        // Decide to drop based upon congestion
+        if (afd_drop_flag == 1 && ig_md.afd.congestion_flag == 1) {
+            ig_dprsr_md.drop_ctl = 1;
         }
+
+        // Deposit or pick up packet bytecounts to allow the lo/hi drop
+        // simulations to work around true dropping.
+        byte_dumps.apply(ig_md.afd.vlink_id,
+                         ig_md.afd.scaled_pkt_len,
+                         afd_drop_flag_lo,
+                         ig_dprsr_md.drop_ctl[0:0],
+                         afd_drop_flag_hi,
+                         ig_md.afd.bytes_sent_lo,
+                         ig_md.afd.bytes_sent_hi,
+                         ig_md.afd.bytes_sent_all);
     }
 }
 
@@ -122,6 +116,7 @@ control SwitchEgress(
     MaxRateEstimator() max_rate_estimator;
     LinkRateTracker() link_rate_tracker;
     UpdateStorage() update_storage;
+    DetectCongestion() detect_congestion;
 
     byterate_t vlink_rate;
     byterate_t vlink_rate_lo;
@@ -145,11 +140,11 @@ control SwitchEgress(
     }
 
 
+
     apply { 
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
-                                    eg_md.afd.drop_withheld,
                                     eg_md.afd.scaled_pkt_len, 
                                     eg_md.afd.bytes_sent_all,
                                     eg_md.afd.bytes_sent_lo, 
@@ -158,6 +153,9 @@ control SwitchEgress(
                                     vlink_rate_lo, 
                                     vlink_rate_hi, 
                                     vlink_demand);
+            detect_congestion.apply(eg_md.afd.vtrunk_threshold,
+                                    vlink_demand,
+                                    eg_md.afd.congestion_flag);
             max_rate_estimator.apply(eg_md.afd.vlink_id,
                                      eg_md.afd.measured_rate,
                                      eg_md.afd.is_worker,
@@ -172,10 +170,11 @@ control SwitchEgress(
                                          eg_md.afd.candidate_delta_pow,
                                          eg_md.afd.new_threshold);
         }
+        else {
+            eg_md.afd.congestion_flag = 0;  // Ensures var is initialized
+        }
         // Load or save congestion flags and new thresholds
         update_storage.apply(eg_md.afd.vlink_id,
-                             vlink_demand,
-                             eg_md.afd.vtrunk_threshold,
                              eg_md.afd.max_rate,
                              eg_md.afd.new_threshold,
                              eg_md.afd.is_worker,

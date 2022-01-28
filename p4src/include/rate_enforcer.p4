@@ -54,11 +54,10 @@ control RateEnforcer(in byterate_t measured_rate,
         void apply(inout bit<8> stored, out bit<8> returned) {
             if (stored == 1) {
                 stored = 0;
-                returned = 0;
             } else {
                 stored = 1;
-                returned = 1;
             }
+            returned = stored;
         }
     };
     drop_prob_t rng_output = rng.get();
@@ -69,8 +68,8 @@ control RateEnforcer(in byterate_t measured_rate,
      * -------------------------------------------------------------------------------------- */
     @hidden
     Register<drop_prob_pair_t, bit<8>>(32) drop_flag_mid_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_mid_calculator) get_flip_drop_flag_mid_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_mid_calculator) get_flip_drop_flag_mid_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability) {
                 drop_decision = 1;
@@ -81,8 +80,8 @@ control RateEnforcer(in byterate_t measured_rate,
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_mid_calculator) get_flop_drop_flag_mid_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_mid_calculator) get_flop_drop_flag_mid_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability) {
                 drop_decision = 1;
@@ -99,26 +98,26 @@ control RateEnforcer(in byterate_t measured_rate,
      * -------------------------------------------------------------------------------------- */
     @hidden
     Register<drop_prob_pair_t, bit<8>>(32) drop_flag_lo_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_lo) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.lo = rng_output;
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.lo = rng_output;
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_lo_calculator) get_flop_drop_flag_lo_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_lo_calculator) get_flop_drop_flag_lo_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_lo) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.hi = rng_output;
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.hi = rng_output;
             }
         }
@@ -129,26 +128,26 @@ control RateEnforcer(in byterate_t measured_rate,
      * -------------------------------------------------------------------------------------- */
     @hidden
     Register<drop_prob_pair_t, bit<8>>(32) drop_flag_hi_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_hi) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.lo = rng_output;
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.lo = rng_output;
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_hi_calculator) get_flop_drop_flag_hi_regact = {
-        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
+    RegisterAction<drop_prob_pair_t, bit<8>, bit<8>>(drop_flag_hi_calculator) get_flop_drop_flag_hi_regact = {
+        void apply(inout drop_prob_pair_t stored_rng_vals, out bit<8> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_hi) {
-                drop_decision = 1w1;
+                drop_decision = 1;
                 stored_rng_vals.hi = rng_output;
             } else {
-                drop_decision = 1w0;
+                drop_decision = 0;
                 stored_rng_vals.hi = rng_output;
             }
         }
@@ -156,103 +155,28 @@ control RateEnforcer(in byterate_t measured_rate,
 
 
     /* --------------------------------------------------------------------------------------
-     * Tables for calling the probabilistic drop registers
+     * Actions for calling the probabilistic drop registers
      * -------------------------------------------------------------------------------------- */
-    // True drop flag table
-    @hidden
+    // Mid (true) drop flag
     action get_flip_drop_flag_mid() {
-        drop_flag_mid = get_flip_drop_flag_mid_regact.execute(0);
+        drop_flag_mid = (bit<1>) get_flip_drop_flag_mid_regact.execute(0);
     }
-    @hidden
     action get_flop_drop_flag_mid() {
-        drop_flag_mid = get_flop_drop_flag_mid_regact.execute(0);
+        drop_flag_mid = (bit<1>) get_flop_drop_flag_mid_regact.execute(0);
     }
-    @hidden
-    action unset_drop_flag_mid() {
-        drop_flag_mid = 0;
-    }
-    @hidden
-    table get_drop_flag_mid {
-        key = {
-            mid_exceeded_flag : exact;
-            flipflop : exact;
-        }
-        actions = {
-            get_flip_drop_flag_mid;
-            get_flop_drop_flag_mid;
-            unset_drop_flag_mid;
-        }
-        size = 4;
-        const entries = {
-            (0, 0) : unset_drop_flag_mid();
-            (0, 1) : unset_drop_flag_mid();
-            (1, 0) : get_flip_drop_flag_mid();
-            (1, 1) : get_flop_drop_flag_mid();
-        }
-    }
-    // Lo drop flag table
-    @hidden
+    // Lo drop flag
     action get_flip_drop_flag_lo() {
-        drop_flag_lo = get_flip_drop_flag_lo_regact.execute(0);
+        drop_flag_lo = (bit<1>) get_flip_drop_flag_lo_regact.execute(0);
     }
-    @hidden
     action get_flop_drop_flag_lo() {
-        drop_flag_lo = get_flop_drop_flag_lo_regact.execute(0);
+        drop_flag_lo = (bit<1>) get_flop_drop_flag_lo_regact.execute(0);
     }
-    @hidden
-    action unset_drop_flag_lo() {
-        drop_flag_lo = 0;
-    }
-    @hidden
-    table get_drop_flag_lo {
-        key = {
-            lo_exceeded_flag : exact;
-            flipflop : exact;
-        }
-        actions = {
-            get_flip_drop_flag_lo;
-            get_flop_drop_flag_lo;
-            unset_drop_flag_lo;
-        }
-        size = 4;
-        const entries = {
-            (0, 0) : unset_drop_flag_lo();
-            (0, 1) : unset_drop_flag_lo();
-            (1, 0) : get_flip_drop_flag_lo();
-            (1, 1) : get_flop_drop_flag_lo();
-        }
-    }
-    // Hi drop flag table
-    @hidden
+    // Hi drop flag
     action get_flip_drop_flag_hi() {
-        drop_flag_hi = get_flip_drop_flag_hi_regact.execute(0);
+        drop_flag_hi = (bit<1>) get_flip_drop_flag_hi_regact.execute(0);
     }
-    @hidden
     action get_flop_drop_flag_hi() {
-        drop_flag_hi = get_flop_drop_flag_hi_regact.execute(0);
-    }
-    @hidden
-    action unset_drop_flag_hi() {
-        drop_flag_hi = 0;
-    }
-    @hidden
-    table get_drop_flag_hi {
-        key = {
-            hi_exceeded_flag : exact;
-            flipflop : exact;
-        }
-        actions = {
-            get_flip_drop_flag_hi;
-            get_flop_drop_flag_hi;
-            unset_drop_flag_hi;
-        }
-        size = 4;
-        const entries = {
-            (0, 0) : unset_drop_flag_hi();
-            (0, 1) : unset_drop_flag_hi();
-            (1, 0) : get_flip_drop_flag_hi();
-            (1, 1) : get_flop_drop_flag_hi();
-        }
+        drop_flag_hi = (bit<1>) get_flop_drop_flag_hi_regact.execute(0);
     }
 
 
@@ -439,9 +363,39 @@ control RateEnforcer(in byterate_t measured_rate,
         
         // Get true drop flag and simulated drop flags, by comparing
         //  lookup table outputs to an RNG value. If rng < output, mark to drop.
-        get_drop_flag_lo.apply();
-        get_drop_flag_mid.apply();
-        get_drop_flag_hi.apply();
+        if (flipflop == 1) {
+            if (lo_exceeded_flag == 1) {
+                get_flip_drop_flag_lo();
+            } else {
+                drop_flag_lo = 0;
+            }
+            if (mid_exceeded_flag == 1) {
+                get_flip_drop_flag_mid();
+            } else {
+                drop_flag_mid = 0;
+            }
+            if (hi_exceeded_flag == 1) {
+                get_flip_drop_flag_hi();
+            } else {
+                drop_flag_hi = 0;
+            }
+        } else {
+            if (lo_exceeded_flag == 1) {
+                get_flop_drop_flag_lo();
+            } else {
+                drop_flag_lo = 0;
+            }
+            if (mid_exceeded_flag == 1) {
+                get_flop_drop_flag_mid();
+            } else {
+                drop_flag_mid = 0;
+            }
+            if (hi_exceeded_flag == 1) {
+                get_flop_drop_flag_hi();
+            } else {
+                drop_flag_hi = 0;
+            }
+        }
 	}
 }
 

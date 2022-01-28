@@ -3,7 +3,7 @@
 
 control MaxRateEstimator(in vlink_index_t vlink_id,
                          in byterate_t curr_rate,
-                         in bit<1> new_epoch,
+                         in bit<1> is_worker,
                          out byterate_t max_rate) {
 
 
@@ -12,10 +12,11 @@ control MaxRateEstimator(in vlink_index_t vlink_id,
 
 
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(window_maxrate) write_maxrate_regact = {
-        void apply(inout byterate_t stored_rate) {
+        void apply(inout byterate_t stored_rate, out byterate_t retval) {
             if (stored_rate < curr_rate) {
                 stored_rate = curr_rate;
             }
+            retval = stored_rate;
         }
     };
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(window_maxrate) read_maxrate_regact = {
@@ -31,25 +32,14 @@ control MaxRateEstimator(in vlink_index_t vlink_id,
     }
     @hidden
     action write_maxrate() {
-        write_maxrate_regact.execute(vlink_id);
-    }
-
-    @hidden
-    table read_or_write_maxrate {
-        key = {
-            new_epoch : exact;
-        }
-        actions = {
-            read_maxrate;
-            write_maxrate;
-        }
-        const entries = {
-            0 : write_maxrate();
-            1 : read_maxrate();
-        }
+        max_rate = write_maxrate_regact.execute(vlink_id);
     }
 
     apply {
-        read_or_write_maxrate.apply();
+        if (is_worker == 1) {
+            read_maxrate();
+        } else {
+            write_maxrate();
+        }
     }
 }
