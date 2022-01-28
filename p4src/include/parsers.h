@@ -43,7 +43,7 @@ parser SwitchIngressParser(
         pkt.extract(hdr.ethernet);
         transition select (hdr.ethernet.ether_type) {
             ETHERTYPE_THRESHOLD_UPDATE : parse_threshold_update;
-            ETHERTYPE_IPV4 : parse_ipv4;
+            ETHERTYPE_IPV4 : parse_not_threshold_update;
             default : reject;
         }
     }
@@ -61,6 +61,13 @@ parser SwitchIngressParser(
         transition parse_ipv4;
     }
 
+    state parse_not_threshold_update {
+        ig_md.afd.new_threshold = 0;
+        ig_md.afd.vlink_id = 0;
+        ig_md.afd.congestion_flag = 0;
+        ig_md.afd.is_worker = 0;
+        transition parse_ipv4;
+    }
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
