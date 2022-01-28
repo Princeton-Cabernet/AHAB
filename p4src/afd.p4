@@ -64,6 +64,7 @@ control SwitchIngress(
             ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
             ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
         } 
+        ig_md.afd.is_retired_worker=0;
 
         // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
@@ -279,7 +280,7 @@ table save_congestion_flag {
             hdr.fake_ethernet.setInvalid();
             hdr.afd_update.setInvalid();
 
-            
+
             hdr.ethernet.src_addr[31:0]=vlink_demand;
             @in_hash{
                 hdr.ethernet.src_addr[47:44]=(bit<4>) threshold_minus_rate[31:31];
