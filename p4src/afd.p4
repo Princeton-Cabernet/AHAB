@@ -181,13 +181,13 @@ table naive_interpolate {
 
 
 
-    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) grab_new_threshold_regact = {
+    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) grab_new_threshold_regact = {
         void apply(inout byterate_t stored, out byterate_t retval) {
             retval = stored;
         }
     };
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) dump_new_threshold_regact = {
         void apply(inout byterate_t stored, out byterate_t retval) {
             stored = eg_md.afd.new_threshold;
             retval = stored;
@@ -202,20 +202,20 @@ table naive_interpolate {
 
 
 byterate_t threshold_minus_demand; 
-    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) set_congestion_flag_regact = {
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) egr_reg_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) set_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
         stored_flag = 1;
         returned_flag = 1;
         }
     };
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) unset_congestion_flag_regact = {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) unset_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
         stored_flag = 0;
         returned_flag = 0;
         }
     };
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) grab_congestion_flag_regact = {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) grab_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
             returned_flag = stored_flag;
         }

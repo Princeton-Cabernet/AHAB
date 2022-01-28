@@ -181,7 +181,12 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         }else{
             write_congestion_flag();
             write_stored_threshold_act();
-            ucast_egress_port=4;//drop_ctl = 1;
+            
+            //drop_ctl = 1;
+            //observe worker packet
+            drop_ctl = 0; 
+            ucast_egress_port=4; 
+            afd_md.is_worker=0;
             afd_md.is_retired_worker=1;
             exit;
         }
