@@ -74,7 +74,7 @@ while True:
                     values = v
                     break
             if args.pipe == -1:
-                if values.count(0) == 4:
+                if values.count(0) == len(values):
                     blank_entries += 1
                 else:
                     print("%d : %s" % (index, str(values)))
