@@ -252,6 +252,9 @@ table save_congestion_flag {
 
 
     apply { 
+        if(eg_md.afd.is_retired_worker == 1){
+            exit;
+        }else
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 

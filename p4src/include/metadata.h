@@ -28,6 +28,9 @@ header afd_metadata_t {
     @padding bit<7>         _pad1;
     bit<1>                  drop_withheld;
     byterate_t              max_rate;
+
+    @padding bit<7>         _pad2;
+    bit<1>                  is_retired_worker;  // Set by parser. Do not write in MATs
 }
 
 @pa_auto_init_metadata
