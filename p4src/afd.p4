@@ -154,11 +154,11 @@ control SwitchEgress(
 bit<32> threshold_minus_rate;
 
 action choose_lo(){
-    eg_md.afd.new_threshold=vlink_rate_lo;
+    eg_md.afd.new_threshold=eg_md.afd.threshold_lo;
 }action choose_hi(){
-    eg_md.afd.new_threshold=vlink_rate_hi;
+    eg_md.afd.new_threshold=eg_md.afd.threshold_hi;
 }action choose_nop(){
-    eg_md.afd.new_threshold=vlink_rate;
+    eg_md.afd.new_threshold=eg_md.afd.threshold;
 }
 
 table naive_interpolate {
