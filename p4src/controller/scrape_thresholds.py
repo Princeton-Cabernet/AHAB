@@ -15,6 +15,8 @@ parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape. -1 to scrape 
 parser.add_argument('-r','--rate', type=float, help='Scraping period in seconds.', default=1)
 parser.add_argument('-i','--start-index', type=int, help='First index to scrape', default=0)
 parser.add_argument('-j','--end-index', type=int, help='Last index to scrape', default=5)
+parser.add_argument('-n','--register_name',type=str, help="Unique suffix of the name of the register to scrape", 
+                        default="stored_thresholds")
 args=parser.parse_args()
 
 
@@ -32,8 +34,29 @@ interface.bind_pipeline_config(bfrt_info.p4_name_get())
 ####### You can now use BFRT CLIENT #######
 target = gc.Target(device_id=0, pipe_id=0xffff)
 
-register_name = u'SwitchIngress.vlink_lookup.stored_thresholds'
-register_cell_name = register_name + u'.f1'
+register_name = ""
+table_names = bfrt_info.table_dict.keys()
+for n in table_names:
+    if str(n).endswith(args.register_name):
+        register_name = n
+        break
+if register_name == "":
+    print("No register with name matching '%s' was found!" % args.register_name)
+    print("===========Available registers ==========")
+    available_regs = []
+    for n in table_names:
+        t = bfrt_info.table_dict[n] 
+        if u'$REGISTER_INDEX' in t.info.key_dict:
+            available_regs.append(n)
+    available_regs.sort()
+    for i, n in enumerate(available_regs):
+        print("%d: %s" % (i, n))
+        
+    print("===========End available registers ==========")
+    sys.exit(1)
+print("Found register with matching name:", register_name)
+
+register_cell_name = register_name + '.f1'
 
 register = bfrt_info.table_dict[register_name]
 
@@ -46,7 +69,11 @@ while True:
 
         for item in response:
             index = item[1].to_dict().values()[0]['value']
-            values = item[0].to_dict()[register_cell_name]
+            values_outer = item[0].to_dict()
+            for k,v in values_outer.items():
+                if type(v) == list:
+                    values = v
+                    break
             if args.pipe == -1:
                 if values.count(0) == 4:
                     blank_entries += 1
