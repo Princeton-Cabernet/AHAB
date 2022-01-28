@@ -102,7 +102,7 @@ control SwitchIngress(
             byte_dumps.apply(ig_md.afd.vlink_id,
                              ig_md.afd.scaled_pkt_len,
                              afd_drop_flag_lo,
-                             afd_drop_flag_mid,
+                             ig_dprsr_md.drop_ctl[0:0],
                              afd_drop_flag_hi,
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
