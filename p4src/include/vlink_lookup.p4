@@ -171,7 +171,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
 
     apply {
-        if (afd_md.is_worker==0) {
+        if (!hdr.afd_update.isValid()) {
             tb_match_ip.apply();
             read_congestion_flag();
             read_stored_threshold_act();
