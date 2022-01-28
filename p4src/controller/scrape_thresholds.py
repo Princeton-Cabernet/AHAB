@@ -7,13 +7,17 @@ sys.path.append(os.path.expandvars('$SDE/install/lib/python2.7/site-packages/tof
 import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
+import time
 
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
 parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape', default=0)
 parser.add_argument('-r','--rate', type=float, help='Scraping period in seconds.', default=1)
+parser.add_argument('-i','--start-index', type=int, help='First index to scrape', default=0)
+parser.add_argument('-j','--end-index', type=int, help='Last index to scrape', default=5)
+parser.add_argument('-n','--register_name',type=str, help="Unique suffix of the name of the register to scrape", 
+                        default="stored_thresholds")
 args=parser.parse_args()
-
 
 # Connect to BF Runtime Server
 interface = gc.ClientInterface(grpc_addr = "localhost:50052", client_id = 0, device_id = 0)
@@ -29,26 +33,57 @@ interface.bind_pipeline_config(bfrt_info.p4_name_get())
 ####### You can now use BFRT CLIENT #######
 target = gc.Target(device_id=0, pipe_id=0xffff)
 
-thresholds_register = bfrt_info.table_get('SwitchIngress.vlink_lookup.stored_thresholds')
+register_name = ""
+table_names = bfrt_info.table_dict.keys()
+for n in table_names:
+    if str(n).endswith(args.register_name):
+        register_name = n
+        break
+if register_name == "":
+    print("No register with name matching '%s' was found!" % args.register_name)
+    print("===========Available registers ==========")
+    available_regs = []
+    for n in table_names:
+        t = bfrt_info.table_dict[n] 
+        if u'$REGISTER_INDEX' in t.info.key_dict:
+            available_regs.append(n)
+    available_regs.sort()
+    for i, n in enumerate(available_regs):
+        print("%d: %s" % (i, n))
+        
+    print("===========End available registers ==========")
+    sys.exit(1)
+print("Found register with matching name:", register_name)
 
-resp = self.register_bool_table.entry_get(
-            target,
-            [thresholds_register.make_key(
-                [gc.KeyTuple('$REGISTER_INDEX', register_idx)])],
-            {"from_hw": True})
+register_cell_name = register_name + '.f1'
 
-# get mirror session table
-mirror_cfg_table = bfrt_info.table_get("$mirror.cfg")
+register = bfrt_info.table_dict[register_name]
 
-####### mirror_cfg_table ########
-# Define the key
-key = mirror_cfg_table.make_key([gc.KeyTuple('$sid', args.sid)])
-# Define the data for the matched key.
-data = mirror_cfg_table.make_data([gc.DataTuple('$direction', str_val="INGRESS"),
-                gc.DataTuple('$ucast_egress_port', args.port), gc.DataTuple('$ucast_egress_port_valid', bool_val=True),
-                gc.DataTuple('$session_enable', bool_val=True)], '$normal')
-# Add the entry to the table
-mirror_cfg_table.entry_add(target, [key], [data])
+while True:
+    print("=============================")    
+    blank_entries = 0;
+    for i in range(args.start_index, args.end_index):
+        key = register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)])
+        response = register.entry_get(target, [key], {"from_hw": True})
 
-
-print('Finished adding clone session %d for port %d' % (args.sid, args.port))
+        for item in response:
+            index = item[1].to_dict().values()[0]['value']
+            values_outer = item[0].to_dict()
+            for k,v in values_outer.items():
+                if type(v) == list:
+                    values = v
+                    break
+            if args.pipe == -1:
+                if values.count(0) == 4:
+                    blank_entries += 1
+                else:
+                    print("%d : %s" % (index, str(values)))
+            else:
+                value = values[args.pipe]
+                if value == 0:
+                    blank_entries += 1
+                else:
+                    print("%d : %s" % (index, str(value)))
+    print("%d zero values read this round" % blank_entries)
+    print("=============================")    
+    time.sleep(args.rate)
