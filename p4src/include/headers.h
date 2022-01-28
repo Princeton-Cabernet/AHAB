@@ -31,7 +31,8 @@ header afd_recirc_h {
     bit<8> marker2;  // debug
     byterate_t new_threshold;
     bit<8> marker3;  // debug
-    bit<8> congestion_flag;
+    bit<7> _pad0;
+    bit<1> congestion_flag;
     bit<8> marker4;  // debug
 }
 // Header for mirrored packets from ingress to egress

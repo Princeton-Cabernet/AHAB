@@ -5,8 +5,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
-            stored_flag = afd_md.congestion_flag;
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+            stored_flag = (bit<8>) afd_md.congestion_flag;
+            returned_flag = stored_flag;
         }
     };
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) read_congestion_flag_regact = {
@@ -16,11 +17,11 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     };
     @hidden
     action write_congestion_flag() {
-        write_congestion_flag_regact.execute(afd_md.vlink_id);
+        afd_md.congestion_flag = (bit<1>) write_congestion_flag_regact.execute(afd_md.vlink_id);
     }
     @hidden
     action read_congestion_flag() {
-        afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
+        afd_md.congestion_flag = (bit<1>) read_congestion_flag_regact.execute(afd_md.vlink_id);
     }
 
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
@@ -33,8 +34,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         }
     };
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold = {
-        void apply(inout byterate_t stored_threshold) {
+        void apply(inout byterate_t stored_threshold, out byterate_t retval) {
             stored_threshold = afd_md.new_threshold;
+            retval = stored_threshold;
         }
     };
     @hidden
@@ -43,7 +45,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
     @hidden
     action write_stored_threshold_act() {
-        write_stored_threshold.execute(afd_md.vlink_id);
+        afd_md.new_threshold = write_stored_threshold.execute(afd_md.vlink_id);
     }
 
 	action set_vlink_default() {

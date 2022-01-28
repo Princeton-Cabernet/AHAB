@@ -18,7 +18,6 @@
 #include "include/worker_generator.p4"
 #include "include/update_storage.p4"
 #include "include/detect_congestion.p4"
-#include "include/drop_control.p4"
 
 
 /* TODO: where should the packet cloning occur?
@@ -51,7 +50,6 @@ control SwitchIngress(
     RateEnforcer() rate_enforcer;
     ByteDumps() byte_dumps;
     WorkerGenerator() worker_generator;
-    DropControl() drop_control;
 
     apply {
         // Set these mirror fields unconditionally, because they are discarded anyway if mirroring doesn't occur
@@ -88,10 +86,9 @@ control SwitchIngress(
                             afd_drop_flag_hi);
 
         // Decide to drop based upon congestion
-        drop_control.apply(afd_drop_flag,
-                           ig_md.afd.congestion_flag,
-                           ig_dprsr_md.drop_ctl, 
-                           ig_md.afd.drop_withheld);
+        if (afd_drop_flag == 1 && ig_md.afd.congestion_flag == 1) {
+            ig_dprsr_md.drop_ctl = 1;
+        }
 
         // Deposit or pick up packet bytecounts to allow the lo/hi drop
         // simulations to work around true dropping.
@@ -148,7 +145,6 @@ control SwitchEgress(
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
-                                    eg_md.afd.drop_withheld,
                                     eg_md.afd.scaled_pkt_len, 
                                     eg_md.afd.bytes_sent_all,
                                     eg_md.afd.bytes_sent_lo, 

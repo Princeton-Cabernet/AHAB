@@ -1,6 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
+control LinkRateTracker(in vlink_index_t vlink_id,
                         in bytecount_t scaled_pkt_len, in bytecount_t scaled_pkt_len_all,
                         in bytecount_t scaled_pkt_len_lo, in bytecount_t scaled_pkt_len_hi,
                         out byterate_t vlink_rate, out byterate_t vlink_rate_lo, out byterate_t vlink_rate_hi,
@@ -17,12 +17,9 @@ control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) total_demand_lpf;
 
     apply {
-        //if (drop_withheld == 1) {
-            vlink_rate = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
-        //}
-            
-        vlink_rate_lo = (byterate_t) lo_rate_lpf.execute(scaled_pkt_len_lo, vlink_id);
-        vlink_rate_hi = (byterate_t) hi_rate_lpf.execute(scaled_pkt_len_hi, vlink_id);
-        total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
+        vlink_rate      = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
+        vlink_rate_lo   = (byterate_t) lo_rate_lpf.execute(scaled_pkt_len_lo, vlink_id);
+        vlink_rate_hi   = (byterate_t) hi_rate_lpf.execute(scaled_pkt_len_hi, vlink_id);
+        vlink_demand    = (byterate_t) total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
     }
 }
