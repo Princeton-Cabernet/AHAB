@@ -168,9 +168,9 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
                               out byterate_t new_threshold) {
     
     // Difference between the three LPF outputs and the desired bitrate
-    byterate_t drate;
-    byterate_t drate_lo;
-    byterate_t drate_hi;
+    byterate_t target_minus_lo;
+    byterate_t target_minus_mid;
+    byterate_t target_minus_hi;
 
 
     InterpolationOp interp_op;
@@ -180,12 +180,16 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
 
     @hidden
     action set_interpolate_left() {
+        //precondition: rate_lo < *target* < rate_mid < rate_hi
+        //postcondition: thres_mid - thres_delta < new_threshold < thres_mid
         interp_op = InterpolationOp.LEFT;
         interp_numerator   = vlink_rate         - target_rate;
         interp_denominator = vlink_rate         - vlink_rate_lo;
     }
     @hidden
     action set_interpolate_right() {
+        //precondition: rate_lo < rate_mid < *target* < rate_hi
+        //postcondition: thres_mid - thres_delta < new_threshold < thres_mid
         interp_op = InterpolationOp.RIGHT;
         interp_numerator   = target_rate        - vlink_rate;
         interp_denominator = vlink_rate_hi      - vlink_rate;
@@ -215,9 +219,9 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
     @hidden
     table choose_interpolation_action {
         key = {
-            drate_lo : ternary;
-            drate : ternary;
-            drate_hi : ternary;
+            target_minus_lo : ternary;
+            target_minus_mid : ternary;
+            target_minus_hi : ternary;
         }
         actions = {
             set_interpolate_left;
@@ -245,9 +249,9 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
 
     InterpolateFairRate() interpolate;
     apply {
-            drate    = vlink_rate    - target_rate;
-            drate_lo = vlink_rate_lo - target_rate;
-            drate_hi = vlink_rate_hi - target_rate;
+            target_minus_lo  = target_rate - vlink_rate_lo;
+            target_minus_mid = target_rate - vlink_rate;
+            target_minus_hi  = target_rate - vlink_rate_hi;
             // Interpolate the new fair rate threshold
             choose_interpolation_action.apply();
             if (interp_op != InterpolationOp.NONE) {
