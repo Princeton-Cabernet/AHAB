@@ -146,40 +146,6 @@ control SwitchEgress(
         size = NUM_VTRUNKS;
     }
 
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
-bit<32> threshold_minus_rate;
-
-action choose_lo(){
-    eg_md.afd.new_threshold=eg_md.afd.threshold_lo;
-}action choose_hi(){
-    eg_md.afd.new_threshold=eg_md.afd.threshold_hi;
-}action choose_nop(){
-    eg_md.afd.new_threshold=eg_md.afd.threshold;
-}
-
-table naive_interpolate {
-        key = {
-            threshold_minus_rate : ternary;
-        }
-        actions = {
-            choose_lo;
-            choose_nop;
-            choose_hi;
-        }
-        const entries = {
-            (TERNARY_NEG_CHECK) : choose_lo();     
-            (TERNARY_POS_CHECK) : choose_hi();    
-            (TERNARY_ZERO_CHECK) : choose_nop();
-        }
-        size = 8;
-        default_action = choose_nop();  // Something went wrong, stick with the current fair rate threshold
-}
-
-
-
     Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) grab_new_threshold_regact = {
         void apply(inout byterate_t stored, out byterate_t retval) {
@@ -248,9 +214,6 @@ table save_congestion_flag {
         default_action = nop_();  // Something went wrong, stick with the current fair rate threshold
 }
 
-
-
-
     apply { 
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
@@ -264,11 +227,17 @@ table save_congestion_flag {
                                     vlink_rate_lo, 
                                     vlink_rate_hi, 
                                     vlink_demand);
-
+            
+            bit<32> threshold_minus_rate;
             threshold_minus_rate = eg_md.afd.vtrunk_threshold - vlink_rate;
             threshold_minus_demand = eg_md.afd.vtrunk_threshold - vlink_demand; 
 
-            naive_interpolate.apply();
+            threshold_interpolator.apply(
+                vlink_rate, vlink_rate_lo, vlink_rate_hi,
+                eg_md.afd.vtrunk_threshold, 
+                eg_md.afd.threshold, eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
+                eg_md.afd.candidate_delta_pow,
+                eg_md.afd.new_threshold);
        
             dump_new_threshold();
             save_congestion_flag.apply();
@@ -300,6 +269,7 @@ table save_congestion_flag {
             }
         }
 
+        /*
         hdr.ethernet.src_addr[31:0]=vlink_demand;
         @in_hash{
             hdr.ethernet.src_addr[47:44]=(bit<4>) threshold_minus_rate[31:31];
@@ -307,6 +277,7 @@ table save_congestion_flag {
             hdr.ethernet.src_addr[39:36]=(bit<4>) eg_md.afd.drop_withheld;
             hdr.ethernet.src_addr[35:32]=(bit<4>) eg_md.afd.congestion_flag;
         }
+        */
         // TODO: recirculate to every ingress pipe, not just one.
     }
 }
