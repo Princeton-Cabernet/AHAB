@@ -13,7 +13,7 @@
 #define DEFAULT_THRESHOLD 1024
 
 #define BYTERATE_T_SIGN_BIT 0x80000000
-typedef bit<16> cms_index_t;
+typedef bit<11> cms_index_t;
 typedef bit<bytecount_t_width> bytecount_t;
 typedef bit<byterate_t_width> byterate_t;
 typedef bit<8> epoch_t;

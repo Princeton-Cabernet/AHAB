@@ -21,70 +21,53 @@ control RateEstimator(in bit<32> src_ip,
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_1;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_2;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_3;
-
-    cms_index_t index1_;
-    cms_index_t index2_;
-    cms_index_t index3_;
-
-    bit<1> dummy_bit = 0;
-
-    action get_index1_(){
-        index1_ = hash_1.get({ src_ip,
-                             dst_ip,
-                             proto,
-                             src_port,
-                             dst_port});
-    }
     
-    action get_index2_(){
-        index2_ = hash_2.get({ src_ip,
-                             3w0,
-                             dst_ip,
-                             3w0,
-                             proto,
-                             src_port,
-                             dst_port});
-    }
-    action get_index3_(){
-        index3_ = hash_3.get({ src_ip,
-                             dst_ip,
-                             2w0,
-                             proto,
-                             2w0,
-                             src_port,
-                             1w0,
-                             dst_port});
-    }
-
+    
+    /* TODO: how to enforce this when using immediate hash indices???
+        Is setting sizeof(cms_index_t to be log_2(CMS_HEIGHT) sufficient?
     action truncate_index(){
 	index1_ = index1_ & (CMS_HEIGHT-1);
 	index2_ = index2_ & (CMS_HEIGHT-1);
 	index3_ = index3_ & (CMS_HEIGHT-1);
     }
+    */
 
     action read_cms_act1_() {
-        cms_output_1_ = (byterate_t) lpf_1.execute(sketch_input, index1_);
+        cms_output_1_ = (byterate_t) lpf_1.execute(sketch_input, 
+                                                   hash_1.get({ src_ip,
+                                                                dst_ip,
+                                                                proto,
+                                                                src_port,
+                                                                dst_port}));
     }
     action read_cms_act2_() {
-        cms_output_2_ = (byterate_t) lpf_2.execute(sketch_input, index2_);
+        cms_output_2_ = (byterate_t) lpf_2.execute(sketch_input,
+                                                   hash_2.get({ src_ip,
+                                                                3w0,
+                                                                dst_ip,
+                                                                3w0,
+                                                                proto,
+                                                                src_port,
+                                                                dst_port}));
     }
     action read_cms_act3_() {
-        cms_output_3_ = (byterate_t) lpf_3.execute(sketch_input, index3_);
+        cms_output_3_ = (byterate_t) lpf_3.execute(sketch_input,
+                                                   hash_3.get({ src_ip,
+                                                                dst_ip,
+                                                                2w0,
+                                                                proto,
+                                                                2w0,
+                                                                src_port,
+                                                                1w0,
+                                                                dst_port}));
     }
 
 
 
     apply {
-        // Get CMS indices
-	get_index1_();
-	get_index2_();
-	get_index3_();
-        // Too long, take lower bits
-	truncate_index();
-
-	read_cms_act1_();
-	read_cms_act2_();
-	read_cms_act3_();
+        read_cms_act1_();
+        read_cms_act2_();
+        read_cms_act3_();
 
         // Get the minimum of all register contents
         sketch_output = min<byterate_t>(cms_output_1_, cms_output_2_);
