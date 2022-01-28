@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import sys
+import time
 import os
 sys.path.append(os.path.expandvars('$SDE/install/lib/python2.7/site-packages/tofino/'))
 import grpc
@@ -10,8 +11,10 @@ import bfrt_grpc.client as gc
 
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
-parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape', default=0)
+parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape. -1 to scrape all.', default=-1)
 parser.add_argument('-r','--rate', type=float, help='Scraping period in seconds.', default=1)
+parser.add_argument('-i','--start-index', type=int, help='First index to scrape', default=0)
+parser.add_argument('-j','--end-index', type=int, help='Last index to scrape', default=5)
 args=parser.parse_args()
 
 
@@ -29,26 +32,32 @@ interface.bind_pipeline_config(bfrt_info.p4_name_get())
 ####### You can now use BFRT CLIENT #######
 target = gc.Target(device_id=0, pipe_id=0xffff)
 
-thresholds_register = bfrt_info.table_get('SwitchIngress.vlink_lookup.stored_thresholds')
+register_name = u'SwitchIngress.vlink_lookup.stored_thresholds'
+register_cell_name = register_name + u'.f1'
 
-resp = self.register_bool_table.entry_get(
-            target,
-            [thresholds_register.make_key(
-                [gc.KeyTuple('$REGISTER_INDEX', register_idx)])],
-            {"from_hw": True})
+register = bfrt_info.table_dict[register_name]
 
-# get mirror session table
-mirror_cfg_table = bfrt_info.table_get("$mirror.cfg")
+while True:
+    print("=============================")    
+    blank_entries = 0;
+    for i in range(args.start_index, args.end_index):
+        key = register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)])
+        response = register.entry_get(target, [key], {"from_hw": True})
 
-####### mirror_cfg_table ########
-# Define the key
-key = mirror_cfg_table.make_key([gc.KeyTuple('$sid', args.sid)])
-# Define the data for the matched key.
-data = mirror_cfg_table.make_data([gc.DataTuple('$direction', str_val="INGRESS"),
-                gc.DataTuple('$ucast_egress_port', args.port), gc.DataTuple('$ucast_egress_port_valid', bool_val=True),
-                gc.DataTuple('$session_enable', bool_val=True)], '$normal')
-# Add the entry to the table
-mirror_cfg_table.entry_add(target, [key], [data])
-
-
-print('Finished adding clone session %d for port %d' % (args.sid, args.port))
+        for item in response:
+            index = item[1].to_dict().values()[0]['value']
+            values = item[0].to_dict()[register_cell_name]
+            if args.pipe == -1:
+                if values.count(0) == 4:
+                    blank_entries += 1
+                else:
+                    print("%d : %s" % (index, str(values)))
+            else:
+                value = values[args.pipe]
+                if value == 0:
+                    blank_entries += 1
+                else:
+                    print("%d : %s" % (index, str(value)))
+    print("%d zero values read this round" % blank_entries)
+    print("=============================")    
+    time.sleep(args.rate)
