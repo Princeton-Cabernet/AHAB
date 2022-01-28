@@ -64,7 +64,6 @@ control SwitchIngress(
             ig_md.mirror_session = THRESHOLD_UPDATE_MIRROR_SESSION;
             ig_md.mirror_bmd_type = BMD_TYPE_MIRROR;  // mirror digest fields cannot be immediates, so put this here
         } 
-        ig_md.afd.is_retired_worker=0;
 
         // Approximately measure this flow's instantaneous rate.
         rate_estimator.apply(hdr.ipv4.src_addr,
@@ -253,9 +252,6 @@ table save_congestion_flag {
 
 
     apply { 
-        if(eg_md.afd.is_retired_worker == 1){
-            exit;
-        }else
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
