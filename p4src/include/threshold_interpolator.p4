@@ -234,8 +234,10 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
             // The zero checks have to use "don't cares" for the other two candidates to not error on boundary cases,
             // because in boundary cases there may be two zero comparisons.
             // (In boundary cases either lo == mid or mid == hi)
-            (TERNARY_ZERO_CHECK, TERNARY_DONT_CARE,  TERNARY_DONT_CARE) : choose_low_candidate();     // equal to low candidate
+            (TERNARY_ZERO_CHECK, TERNARY_ZERO_CHECK, TERNARY_DONT_CARE) : choose_middle_candidate();  // equal to low and mid
+            (TERNARY_DONT_CARE,  TERNARY_ZERO_CHECK, TERNARY_ZERO_CHECK): choose_middle_candidate();  // equal to mid and high
             (TERNARY_DONT_CARE,  TERNARY_ZERO_CHECK, TERNARY_DONT_CARE) : choose_middle_candidate();  // equal to middle candidate
+            (TERNARY_ZERO_CHECK, TERNARY_DONT_CARE,  TERNARY_DONT_CARE) : choose_low_candidate();     // equal to low candidate
             (TERNARY_DONT_CARE,  TERNARY_DONT_CARE,  TERNARY_ZERO_CHECK): choose_high_candidate();    // equal to high candidate
 
             (TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK) : choose_low_candidate();     // below low candidate
