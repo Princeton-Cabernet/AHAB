@@ -1,7 +1,8 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 #include "define.h"
 
-#define DROP_PROB_LOOKUP_TBL_SIZE 1024
+#define DROP_PROB_LOOKUP_TBL_SIZE 2048
+#define SIM_DROP_PROB_LOOKUP_TBL_SIZE 1024
 typedef bit<5> shifted_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
 typedef bit<6> shifted_mid_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
 typedef bit<16> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,4096] (12 bits stored in 16 bits)
@@ -384,7 +385,7 @@ control RateEnforcer(in byterate_t measured_rate,
             load_drop_prob_lo_act;
         }
 		default_action = load_drop_prob_lo_act(0);
-        size = DROP_PROB_LOOKUP_TBL_SIZE;
+        size = SIM_DROP_PROB_LOOKUP_TBL_SIZE;
         const entries = {
 #include "actions_and_entries/load_drop_prob/const_entries_lo.p4inc"
         }
@@ -404,7 +405,7 @@ control RateEnforcer(in byterate_t measured_rate,
             load_drop_prob_hi_act;
         }
 		default_action=load_drop_prob_hi_act(0);
-        size = DROP_PROB_LOOKUP_TBL_SIZE;
+        size = SIM_DROP_PROB_LOOKUP_TBL_SIZE;
         const entries = {
 #include "actions_and_entries/load_drop_prob/const_entries_hi.p4inc"
         }

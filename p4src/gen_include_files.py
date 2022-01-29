@@ -9,7 +9,8 @@ interp_input_precision = 5
 interp_output_precision = 8
 bitwidth_of_byterate_t = 32
 drop_rate_input_precision = 6
-drop_rate_output_precision = 12
+drop_rate_output_precision = 16
+max_drop_probability = (1 << drop_rate_output_precision) - 2
 simulated_drop_rate_input_precision = 5
 sim_real_drop_precision_diff = drop_rate_input_precision - simulated_drop_rate_input_precision
 
@@ -223,6 +224,7 @@ def gen_files__drop_prob_lookup():
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
                     drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = min(max_drop_probability, drop_probability)
                     fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
     for suffix in ["_mid"]:
         with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
@@ -230,6 +232,7 @@ def gen_files__drop_prob_lookup():
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
                     drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = min(max_drop_probability, drop_probability)
                     fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
 
 
