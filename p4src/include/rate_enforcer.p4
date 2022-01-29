@@ -3,7 +3,8 @@
 
 #define DROP_PROB_LOOKUP_TBL_SIZE 1024
 typedef bit<5> shifted_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
-typedef bit<8> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,256]
+typedef bit<6> shifted_mid_rate_t; // lookup table sizes will be 2 ** (2 * sizeof(shifted_rate_t))
+typedef bit<16> drop_prob_t;  // a drop probability in [0,1] transformed into an integer in [0,4096] (12 bits stored in 16 bits)
 struct drop_prob_pair_t {
     drop_prob_t hi;
     drop_prob_t lo;
@@ -32,10 +33,11 @@ control RateEnforcer(in byterate_t measured_rate,
     drop_prob_t drop_probability_hi = 0;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
 
     // Approximate division lookup table keys
-    shifted_rate_t measured_rate_shifted;
-    shifted_rate_t threshold_lo_shifted;
-    shifted_rate_t threshold_shifted;
-    shifted_rate_t threshold_hi_shifted;
+    shifted_mid_rate_t measured_rate_mid_shifted;  // real
+    shifted_mid_rate_t threshold_mid_shifted;  // real
+    shifted_rate_t measured_rate_shifted;  // simulated
+    shifted_rate_t threshold_lo_shifted;  // simulated
+    shifted_rate_t threshold_hi_shifted;  // simulated
     
     // difference (candidate - measured_rate) for each candidate
     byterate_t dthresh_lo = 0;
@@ -68,8 +70,8 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Probabilistically set the drop flag based upon current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<8>>(32) drop_flag_mid_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_mid_calculator) get_flip_drop_flag_mid_regact = {
+    Register<drop_prob_pair_t, bit<16>>(32) drop_flag_mid_calculator;
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_mid_calculator) get_flip_drop_flag_mid_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability) {
@@ -81,7 +83,7 @@ control RateEnforcer(in byterate_t measured_rate,
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_mid_calculator) get_flop_drop_flag_mid_regact = {
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_mid_calculator) get_flop_drop_flag_mid_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability) {
@@ -98,8 +100,8 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Pretend to probabilistically drop using threshold_lo as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<8>>(32) drop_flag_lo_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
+    Register<drop_prob_pair_t, bit<16>>(32) drop_flag_lo_calculator;
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_lo_calculator) get_flip_drop_flag_lo_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_lo) {
@@ -111,7 +113,7 @@ control RateEnforcer(in byterate_t measured_rate,
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_lo_calculator) get_flop_drop_flag_lo_regact = {
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_lo_calculator) get_flop_drop_flag_lo_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_lo) {
@@ -128,8 +130,8 @@ control RateEnforcer(in byterate_t measured_rate,
      *  Pretend to probabilistically drop using threshold_hi as the current fair rate threshold
      * -------------------------------------------------------------------------------------- */
     @hidden
-    Register<drop_prob_pair_t, bit<8>>(32) drop_flag_hi_calculator;
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
+    Register<drop_prob_pair_t, bit<16>>(32) drop_flag_hi_calculator;
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_hi_calculator) get_flip_drop_flag_hi_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_hi to metadata1, set register_lo to metadata2
             if (stored_rng_vals.hi < drop_probability_hi) {
@@ -141,7 +143,7 @@ control RateEnforcer(in byterate_t measured_rate,
             }
         }
     };
-    RegisterAction<drop_prob_pair_t, bit<8>, bit<1>>(drop_flag_hi_calculator) get_flop_drop_flag_hi_regact = {
+    RegisterAction<drop_prob_pair_t, bit<16>, bit<1>>(drop_flag_hi_calculator) get_flop_drop_flag_hi_regact = {
         void apply(inout drop_prob_pair_t stored_rng_vals, out bit<1> drop_decision) {
             // Compare register_lo to metadata1, set register_hi to metadata2
             if (stored_rng_vals.lo < drop_probability_hi) {
@@ -321,10 +323,11 @@ control RateEnforcer(in byterate_t measured_rate,
 #include "actions_and_entries/shift_measured_rate/action_defs.p4inc"
     /* Include actions of the form:
 	action rshift_x() {
-        threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> x);
-        threshold_shifted     = (shifted_rate_t) (threshold_mid  >> x);
+    	threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> x);
         threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> x);
         measured_rate_shifted = (shifted_rate_t) (measured_rate  >> x);
+        threshold_mid_shifted     = (shifted_mid_rate_t) (threshold_mid  >> x);
+        measured_rate_mid_shifted = (shifted_mid_rate_t) (measured_rate  >> x);
 	}
     */
 	table shift_measured_rate {
@@ -354,8 +357,8 @@ control RateEnforcer(in byterate_t measured_rate,
     @hidden
 	table load_drop_prob_mid {
 		key = {
-            threshold_shifted : exact;
-            measured_rate_shifted: exact;
+            threshold_mid_shifted : exact;
+            measured_rate_mid_shifted: exact;
 		}
 		actions = {
             load_drop_prob_mid_act;
