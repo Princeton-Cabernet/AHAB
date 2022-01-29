@@ -245,7 +245,7 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
             (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_right();    // between mid and high
             (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_POS_CHECK) : choose_high_candidate();    // above high candidate
         }
-        size = 8;
+        size = 32;
         default_action = choose_middle_candidate();  // Something went wrong, stick with the current fair rate threshold
     }
 
