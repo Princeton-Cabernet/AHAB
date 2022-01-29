@@ -1,14 +1,18 @@
 #!/usr/bin/python3
 import math
 import os
+from typing import Tuple
 
 base_dir = "./include/actions_and_entries/"
 
 interp_input_precision = 5
 interp_output_precision = 8
 bitwidth_of_byterate_t = 32
-drop_rate_input_precision = 5
-drop_rate_output_precision = 8
+drop_rate_input_precision = 6
+drop_rate_output_precision = 16
+max_drop_probability = (1 << drop_rate_output_precision) - 2
+simulated_drop_rate_input_precision = 5
+sim_real_drop_precision_diff = drop_rate_input_precision - simulated_drop_rate_input_precision
 
 fname_actionlist = "action_list.p4inc"
 fname_actiondefs = "action_defs.p4inc"
@@ -26,6 +30,15 @@ def gen_actiondef(action_namef: str, action_bodyf: str, shiftnum: int, param_str
     stringf = "".join(["\n", "action ", action_namef, "(", param_str, ") {{\n", action_bodyf, "\n}}\n"])
     shiftnum_occurrences = stringf.count("{}")
     shiftnums = (shiftnum,) * shiftnum_occurrences
+    return stringf.format(*shiftnums)
+
+
+def gen_actiondef_multiparam(action_namef: str, action_bodyf: str, shiftnums: Tuple[int], param_str: str = "") -> str:
+    stringf = "".join(["\n", "action ", action_namef, "(", param_str, ") {{\n", action_bodyf, "\n}}\n"])
+    shiftnum_occurrences = stringf.count("{}")
+    if shiftnum_occurrences != len(shiftnums):
+        raise Exception("Bad number of parameters given to gen_actiondef_multiparam. %d given, %d expected" 
+                % (len(shiftnums), shiftnum_occurrences))
     return stringf.format(*shiftnums)
 
 
@@ -166,16 +179,23 @@ def gen_files__shift_measured_rate():
     min_shift = 0
     action_namef = "rshift_{}"
     action_bodyf = "    threshold_lo_shifted  = (shifted_rate_t) (threshold_lo   >> {});\n" \
-                   "    threshold_shifted     = (shifted_rate_t) (threshold_mid  >> {});\n" \
                    "    threshold_hi_shifted  = (shifted_rate_t) (threshold_hi   >> {});\n" \
-                   "    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> {});"
+                   "    measured_rate_shifted = (shifted_rate_t) (measured_rate  >> {});\n" \
+                   "    threshold_mid_shifted     = (shifted_mid_rate_t) (threshold_mid  >> {});\n" \
+                   "    measured_rate_mid_shifted = (shifted_mid_rate_t) (measured_rate  >> {});"
 
     dir_name = base_dir + dir_shift_measured_rate
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
 
     with open(dir_name + fname_actiondefs, "w") as fp:
         for shift in range(min_shift, max_shift+1):
-            fp.write(gen_actiondef(action_namef, action_bodyf, shift))
+            fp.write(gen_actiondef_multiparam(action_namef, action_bodyf, 
+                   (shift, 
+                    shift + sim_real_drop_precision_diff, 
+                    shift + sim_real_drop_precision_diff, 
+                    shift + sim_real_drop_precision_diff, 
+                    shift, 
+                    shift)))
 
     with open(dir_name + fname_actionlist, "w") as fp:
         for shift in range(min_shift, max_shift+1):
@@ -198,12 +218,21 @@ def gen_files__drop_prob_lookup():
     dir_name = base_dir + dir_drop_probability
     os.makedirs(os.path.dirname(dir_name), exist_ok=True)
     entryf = "({:>3}, {:>3}) : load_drop_prob{}_act({:>3});\n"
-    for suffix in ["_mid", "_lo", "_hi"]:
+    for suffix in ["_lo", "_hi"]:
+        with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
+            for denominator in range(1 << (simulated_drop_rate_input_precision - 1), 1 << simulated_drop_rate_input_precision):
+                for numerator in range(denominator + 1):
+                    drop_rate = 1 - (numerator / denominator)
+                    drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = min(max_drop_probability, drop_probability)
+                    fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
+    for suffix in ["_mid"]:
         with open(dir_name + "const_entries" + suffix + ".p4inc", 'w') as fp:
             for denominator in range(1 << (drop_rate_input_precision - 1), 1 << drop_rate_input_precision):
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
                     drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = min(max_drop_probability, drop_probability)
                     fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
 
 
