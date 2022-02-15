@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 from __future__ import print_function
 import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
