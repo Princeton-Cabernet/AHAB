@@ -1,9 +1,5 @@
 #!/usr/bin/env python2
 from __future__ import print_function
-
-import sys
-import os
-sys.path.append(os.path.expandvars('$SDE/install/lib/python2.7/site-packages/tofino/'))
 import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
