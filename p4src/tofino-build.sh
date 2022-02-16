@@ -17,6 +17,7 @@ fi
 
 if [ -n "$SDE_INSTALL" ]; then
 	echo "Installing compiler output in $SDE_INSTALL"
+    sudo rm -f $SDE_INSTALL/share/p4/targets/tofino/afd.conf
 	sudo mv afd.tofino/afd.conf $SDE_INSTALL/share/p4/targets/tofino/afd.conf
 	sudo rm -rf $SDE_INSTALL/afd.tofino
 	sudo mv afd.tofino $SDE_INSTALL/

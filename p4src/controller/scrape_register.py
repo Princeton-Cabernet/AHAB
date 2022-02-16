@@ -52,35 +52,35 @@ if register_name == "":
     sys.exit(1)
 print("Found register with matching name:", register_name)
 
-register_cell_name = register_name + '.f1'
-
 register = bfrt_info.table_dict[register_name]
 
 while True:
     print("=============================")    
     blank_entries = 0;
+    key_list = list()
     for i in range(args.start_index, args.end_index):
-        key = register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)])
-        response = register.entry_get(target, [key], {"from_hw": True})
+        key_list.append(register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)]))
 
-        for item in response:
-            index = item[1].to_dict().values()[0]['value']
-            values_outer = item[0].to_dict()
-            for k,v in values_outer.items():
-                if type(v) == list:
-                    values = v
-                    break
-            if args.pipe == -1:
-                if values.count(0) == len(values):
-                    blank_entries += 1
-                else:
-                    print("%d : %s" % (index, str(values)))
+    response = register.entry_get(target, key_list, {"from_hw": True})
+
+    for data, key in response:
+        index = list(key.to_dict().values())[0]['value']
+        values_outer = data.to_dict()
+        for k,v in values_outer.items():
+            if type(v) == list:
+                values = v
+                break
+        if args.pipe == -1:
+            if values.count(0) == len(values):
+                blank_entries += 1
             else:
-                value = values[args.pipe]
-                if value == 0:
-                    blank_entries += 1
-                else:
-                    print("%d : %s" % (index, str(value)))
+                print("%d : %s" % (index, str(values)))
+        else:
+            value = values[args.pipe]
+            if value == 0:
+                blank_entries += 1
+            else:
+                print("%d : %s" % (index, str(value)))
     print("%d zero values read this round" % blank_entries)
     print("=============================")    
     time.sleep(args.rate)
