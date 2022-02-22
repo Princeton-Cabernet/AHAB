@@ -159,10 +159,25 @@ control SwitchEgress(
         }
     };
     action grab_new_threshold() {
-        eg_md.afd.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
     }
     action dump_new_threshold() {
-        eg_md.afd.new_threshold = dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.new_threshold = dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
+    }
+
+    table read_or_write_new_threshold {
+        key = {
+            eg_md.afd.is_worker : exact;
+        }
+        actions = {
+            grab_new_threshold;
+            dump_new_threshold;
+        }
+        const entries = {
+            0 : dump_new_threshold();
+            1 : grab_new_threshold();
+        }
+        size = 2;
     }
 
 
@@ -186,33 +201,37 @@ byterate_t threshold_minus_demand;
         }
     };
     action set_congestion_flag() {
-        eg_md.afd.congestion_flag = set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.congestion_flag = set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action unset_congestion_flag() {
-        eg_md.afd.congestion_flag = unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.congestion_flag = unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action grab_congestion_flag() {
-        eg_md.afd.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action nop_(){}
 
-table save_congestion_flag {
+
+    table read_or_write_congestion_flag {
         key = {
+            eg_md.afd.is_worker : exact;
             threshold_minus_demand : ternary;
         }
         actions = {
+            grab_congestion_flag;
             set_congestion_flag;
             unset_congestion_flag;
             nop_();
         }
         const entries = {
-            (TERNARY_NEG_CHECK) : set_congestion_flag();     
-            (TERNARY_POS_CHECK) : unset_congestion_flag();    
-            (TERNARY_ZERO_CHECK) : unset_congestion_flag();
+            (1, TERNARY_DONT_CARE) : grab_congestion_flag();
+            (0, TERNARY_NEG_CHECK) : set_congestion_flag();     
+            (0, TERNARY_POS_CHECK) : unset_congestion_flag();    
+            (0, TERNARY_ZERO_CHECK) : unset_congestion_flag();
         }
         size = 8;
         default_action = nop_();  // Something went wrong, stick with the current fair rate threshold
-}
+    }
 
     apply { 
         if (eg_md.afd.is_worker == 0) {
@@ -238,46 +257,19 @@ table save_congestion_flag {
                 eg_md.afd.threshold, eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
                 eg_md.afd.candidate_delta_pow,
                 eg_md.afd.new_threshold);
-       
-            dump_new_threshold();
-            save_congestion_flag.apply();
-
             hdr.fake_ethernet.setInvalid();
             hdr.afd_update.setInvalid();
-
-        }else{
-            grab_new_threshold();
-            grab_congestion_flag();
-
+        } else {
             // Fake ethernet header signals to ingress that this is an update
             hdr.fake_ethernet.setValid();
             hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
             // The update
             hdr.afd_update.setValid();
             hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
-            hdr.afd_update.new_threshold = eg_md.afd.new_threshold;
-            hdr.afd_update.congestion_flag = eg_md.afd.congestion_flag;
-
-            @in_hash{
-                hdr.fake_ethernet.src_addr[31:0] = hdr.afd_update.new_threshold;
-            }
-            @in_hash{
-                hdr.fake_ethernet.dst_addr[47:32] = (bit<16>) hdr.afd_update.vlink_id;
-            }
-            @in_hash{
-                hdr.fake_ethernet.dst_addr[31:0] = (bit<32>) hdr.afd_update.congestion_flag;
-            }
         }
 
-        /*
-        hdr.ethernet.src_addr[31:0]=vlink_demand;
-        @in_hash{
-            hdr.ethernet.src_addr[47:44]=(bit<4>) threshold_minus_rate[31:31];
-            hdr.ethernet.src_addr[43:40]=(bit<4>) threshold_minus_demand[31:31];
-            hdr.ethernet.src_addr[39:36]=(bit<4>) eg_md.afd.drop_withheld;
-            hdr.ethernet.src_addr[35:32]=(bit<4>) eg_md.afd.congestion_flag;
-        }
-        */
+        read_or_write_new_threshold.apply();
+        read_or_write_congestion_flag.apply();
         // TODO: recirculate to every ingress pipe, not just one.
     }
 }
