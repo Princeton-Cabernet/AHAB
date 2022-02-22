@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 import grpc
+import ipaddress
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
 
@@ -27,6 +28,44 @@ target = gc.Target(device_id=0, pipe_id=0xffff)
 
 # First, enumerate all table names
 table_names=bfrt_info.table_dict.keys()
+
+
+#============ Begin edits ============#
+
+
+vlink_lookup_table = bfrt_info.table_dict['SwitchIngress.vlink_lookup.tb_match_ip']
+vlink_act_namef = "SwitchIngress.vlink_lookup.set_vlink_%sshift"
+vtrunk_lookup_table = bfrt_info.table_dict['SwitchEgress.vtrunk_lookup']
+
+def get_vlink_action_name(lshiftnum):
+    if shiftnum == 0:
+        return vlink_act_namef % "no"
+    elif shiftnum > 0:
+        return (vlink_act_namef % "l") + str(shiftnum)
+    else:
+        return (vlink_act_namef % "r") + str(-shiftnum)
+
+def make_vlink_key(ipv4_prefix):
+    prefix = ipaddress.ip_network(unicode(ipv4_prefix))
+    
+    return vlink_lookup_table.make_key([
+            gc.KeyTuple('hdr.ipv4.dst_addr', str(prefix.network_address), prefix_len=prefix.prefixlen)])
+
+
+def add_vlink_entry(vlink_id, ipv4_prefix, weight_pow):
+    key = make_vlink_key(ipv4_prefix)
+
+    data = vlink_lookup_table.make_data([gc.DataTuple('', vlink_id], get_vlink_action_name(weight_pow))
+
+    vlink_lookup_table.entry_add(
+        target, 
+        [key], 
+        [data]) 
+
+
+#============ End edits ============#
+
+
 
 relevant_table_names=[n for n in table_names if 'LPF' in n or 'lpf' in n]
 relevant_tables=[]
