@@ -55,7 +55,8 @@ print("Found register with matching name:", register_name)
 register = bfrt_info.table_dict[register_name]
 
 while True:
-    print("=============================")    
+    output_str = ""
+    output_str += "=============================\n"   
     blank_entries = 0;
     key_list = list()
     for i in range(args.start_index, args.end_index):
@@ -81,6 +82,7 @@ while True:
                 blank_entries += 1
             else:
                 print("%d : %s" % (index, str(value)))
-    print("%d zero values read this round" % blank_entries)
-    print("=============================")    
+    output_str += "%d zero values read this round\n" % blank_entries
+    output_str += "=============================\n"
+    print(output_str)
     time.sleep(args.rate)

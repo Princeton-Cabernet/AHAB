@@ -70,11 +70,14 @@ def add_entries():
         delta_pow = i - args.delta
         pos_delta = (1 << delta_pow)
         neg_delta = -pos_delta
+        pos_delta = 2 # DEBUG
+        neg_delta = -2 # DEBUG
         if i == args.low:
             neg_delta=0
         if i == args.high:
             pos_delta=0;
         key_val = 1 << i
+        delta_pow = 1 # DEBUG
         key_mask = (0xffffffff << i) & 0xffffffff
         action_params = (pos_delta, neg_delta, i-1)
 

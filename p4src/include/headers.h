@@ -25,6 +25,8 @@ const tcp_flags_t TCP_FLAGS_A = 16;
 
 //== Special Headers
 // Header for sending updates from egress to ingress
+@pa_no_overlay("ingress", "hdr.afd_update.new_threshold")
+@pa_no_overlay("egress", "hdr.afd_update.new_threshold")
 header afd_recirc_h {
     vlink_index_t vlink_id;
     byterate_t new_threshold;

@@ -71,34 +71,22 @@ parser SwitchIngressParser(
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
-        ig_md.afd.is_worker = 0;
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
             IP_PROTOCOLS_UDP : parse_udp;
-            default : parse_unknown_l4;
+            default : accept; 
         }
     }
 
     state parse_tcp {
         pkt.extract(hdr.tcp);
-        ig_md.sport = hdr.tcp.src_port;
-        ig_md.dport = hdr.tcp.dst_port;
         transition accept;
     }
 
     state parse_udp {
         pkt.extract(hdr.udp);
-        ig_md.sport = hdr.udp.src_port;
-        ig_md.dport = hdr.udp.dst_port;
         transition accept;
     }
-
-    state parse_unknown_l4 {
-        ig_md.sport = 0;
-        ig_md.dport = 0;
-        transition accept;
-    }
-
 }
 
 control SwitchIngressDeparser(
@@ -175,34 +163,19 @@ parser SwitchEgressParser(
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
             IP_PROTOCOLS_UDP : parse_udp;
-            default : parse_unknown_l4;
+            default : accept;
         }
     }
 
     state parse_tcp {
         pkt.extract(hdr.tcp);
-        eg_md.sport = hdr.tcp.src_port;
-        eg_md.dport = hdr.tcp.dst_port;
         transition accept;
     }
 
     state parse_udp {
         pkt.extract(hdr.udp);
-        eg_md.sport = hdr.udp.src_port;
-        eg_md.dport = hdr.udp.dst_port;
         transition accept;
     }
-
-    state parse_unknown_l4 {
-        eg_md.sport = 0;
-        eg_md.dport = 0;
-        transition accept;
-    }
-
-
-
-
-
 }
 
 control SwitchEgressDeparser(

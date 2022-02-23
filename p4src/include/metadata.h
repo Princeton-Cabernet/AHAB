@@ -3,6 +3,9 @@
 #include "define.h"
 
 @pa_auto_init_metadata
+// TODO: add pa_no_overlay to almost everything for defensive debugging
+@pa_no_overlay("egress", "eg_md.afd.new_threshold")
+@pa_no_overlay("ingress", "ig_md.afd.new_threshold")
 header afd_metadata_t {
     bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
