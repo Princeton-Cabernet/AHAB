@@ -7,7 +7,10 @@ import bfrt_grpc.client as gc
 import argparse
 parser = argparse.ArgumentParser(description='Add LPF rules via GRPC')
 parser.add_argument('-m','--mode', type=str, choices=('RATE','SAMPLE'),help='LPF mode', default='RATE')
-parser.add_argument('-d','--decay', type=float, help='Decay time constant', default=1e6)
+# 1e6 is 1ms. 1e8 is 100ms
+parser.add_argument('-d','--decay', type=float, default=1e6, 
+        help='Decay time constant in nanoseconds. Default is 1e6 ns (1 millisecond).')
+# 
 parser.add_argument('-s','--scale', type=int, help='Scale down factor', default=1)
 args=parser.parse_args()
 

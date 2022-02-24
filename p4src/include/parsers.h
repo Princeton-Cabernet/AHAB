@@ -96,6 +96,7 @@ control SwitchIngressDeparser(
         in ingress_intrinsic_metadata_for_deparser_t ig_intr_dprsr_md) {
 
     Mirror() mirror;
+    Checksum() ipv4_checksum;
 
     apply {
         if (ig_intr_dprsr_md.mirror_type == MIRROR_TYPE_I2E) {
@@ -105,6 +106,20 @@ control SwitchIngressDeparser(
             mirror.emit<mirror_h>(ig_md.mirror_session, 
                                   {ig_md.mirror_bmd_type, ig_md.afd.vlink_id});
         }
+
+        hdr.ipv4.hdr_checksum = ipv4_checksum.update(
+            {hdr.ipv4.version,
+            hdr.ipv4.ihl,
+            hdr.ipv4.dscp,
+            hdr.ipv4.ecn,
+            hdr.ipv4.total_len,
+            hdr.ipv4.identification,
+            hdr.ipv4.flags,
+            hdr.ipv4.frag_offset,
+            hdr.ipv4.ttl,
+            hdr.ipv4.protocol,
+            hdr.ipv4.src_addr,
+            hdr.ipv4.dst_addr});
 
         pkt.emit(ig_md.afd);  // bridge the AFD metadata to egress
         pkt.emit(hdr.ethernet);
