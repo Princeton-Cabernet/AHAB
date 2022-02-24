@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 import time
+import sys
 import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc

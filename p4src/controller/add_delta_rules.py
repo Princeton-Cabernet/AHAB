@@ -16,11 +16,14 @@ parser.add_argument('-j', '--high', type=int, default=20,
                     help='Log_2 of the highest valid threshold, rounded down.')
 parser.add_argument('-d', '--delta', type=int, default=1,
                     help="-Log_2 of the threshold delta's relative size. 1 corresponds to a delta of 1/2, 2 a delta of 1/4, etc.")
+parser.add_argument('-D', '--delta-abs', type=int, default=-1,
+                    help="Log_2 of the threshold delta's *absolute* size. Overrides --delta if provided. 0 corresponds to a delta of 1, 1 a delta of 2, 2 a delta of 4, etc.")
 args=parser.parse_args()
 
-if args.delta > args.low:
-    print("ERROR: mangitude of param --delta should not exceed param --low")
-    sys.exit(1)
+if args.delta_abs != 0:
+    if args.delta > args.low:
+        print("ERROR: mangitude of param --delta should not exceed param --low")
+        sys.exit(1)
 
 
 # Connect to BF Runtime Server
@@ -68,16 +71,15 @@ def add_entries():
     str_list = list()
     for i in range(args.low, args.high+1):
         delta_pow = i - args.delta
+        if args.delta_abs >= 0:
+            delta_pow = args.delta_abs
         pos_delta = (1 << delta_pow)
         neg_delta = -pos_delta
-        pos_delta = 2 # DEBUG
-        neg_delta = -2 # DEBUG
         if i == args.low:
             neg_delta=0
         if i == args.high:
             pos_delta=0;
         key_val = 1 << i
-        delta_pow = 1 # DEBUG
         key_mask = (0xffffffff << i) & 0xffffffff
         action_params = (pos_delta, neg_delta, i-1)
 
