@@ -196,7 +196,7 @@ control SwitchEgress(
             hdr.afd_update.marker2 = 0xbb;
             hdr.afd_update.marker3 = 0xcc;
             hdr.afd_update.marker4 = 0xdd;
-        }else{
+        } else {
             hdr.fake_ethernet.setInvalid();
             hdr.afd_update.setInvalid();
         }

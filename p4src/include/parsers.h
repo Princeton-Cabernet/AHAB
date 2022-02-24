@@ -34,46 +34,39 @@ parser SwitchIngressParser(
 
     state start {
         tofino_parser.apply(pkt, ig_md, ig_intr_md);
-	ig_md.afd.setValid();
+        ig_md.afd.setValid();
         ig_md.afd.bmd_type = BMD_TYPE_I2E;
         transition parse_ethernet;
+    }
+
+    state check_ethernet {
+        ethernet_h tmp = pkt.lookahead<ethernet_h>();
+        transition select(tmp.ether_type) {
+            ETHERTYPE_THRESHOLD_UPDATE : parse_fake_ethernet;
+            default : parse_ethernet;
+        }
     }
 
     state parse_ethernet {
         pkt.extract(hdr.ethernet);
         transition select (hdr.ethernet.ether_type) {
-            ETHERTYPE_THRESHOLD_UPDATE : parse_threshold_update;
-            ETHERTYPE_IPV4 : parse_not_threshold_update;
+            ETHERTYPE_IPV4 : parse_ipv4;
             default : reject;
         }
     }
 
+    state parse_fake_ethernet { 
+        pkt.extract(hdr.fake_ethernet);
+        transition parse_threshold_update;
+    }
+
     state parse_threshold_update {
         pkt.extract(hdr.afd_update);
-
-        // Place the update fields where control vlink_lookup expects them
-        ig_md.afd.new_threshold = hdr.afd_update.new_threshold;
-        ig_md.afd.vlink_id = hdr.afd_update.vlink_id;
-        ig_md.afd.congestion_flag = hdr.afd_update.congestion_flag;
-        ig_md.afd.is_worker = 1;
-
-        pkt.extract(hdr.fake_ethernet);
         transition parse_ipv4;
     }
-
-
-    state parse_not_threshold_update {
-        ig_md.afd.new_threshold = 0;
-        ig_md.afd.vlink_id = 0;
-        ig_md.afd.congestion_flag = 0;
-        ig_md.afd.is_worker = 0;
-        transition parse_ipv4;
-    }
-
 
     state parse_ipv4 {
         pkt.extract(hdr.ipv4);
-        ig_md.afd.is_worker = 0;
         transition select(hdr.ipv4.protocol) {
             IP_PROTOCOLS_TCP : parse_tcp;
             IP_PROTOCOLS_UDP : parse_udp;

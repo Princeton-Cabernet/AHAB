@@ -6,7 +6,7 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
-            stored_flag = (bit<8>) afd_md.congestion_flag;
+            stored_flag = (bit<8>) hdr.afd_update.congestion_flag;
             returned_flag = stored_flag;
         }
     };
@@ -17,15 +17,31 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     };
     @hidden
     action write_congestion_flag() {
-        afd_md.congestion_flag = (bit<1>) write_congestion_flag_regact.execute(afd_md.vlink_id);
+        write_congestion_flag_regact.execute(hdr.afd_update.vlink_id);
     }
     @hidden
     action read_congestion_flag() {
         afd_md.congestion_flag = (bit<1>) read_congestion_flag_regact.execute(afd_md.vlink_id);
     }
+    @hidden
+    table read_or_write_congestion_flag {
+        key = {
+            hdr.afd_update.isValid() : exact;
+        }
+        actions = {
+            read_congestion_flag;
+            write_congestion_flag;
+        }
+        const entries = {
+            0 : read_congestion_flag();
+            1 : write_congestion_flag();
+        }
+        size = 2;
+    }
+            
 
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold_regact = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
             if (stored_threshold == 0) {
                 stored_threshold = DEFAULT_THRESHOLD;
@@ -33,19 +49,33 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             retval = stored_threshold;
         }
     };
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold = {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold_regact = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
-            stored_threshold = afd_md.new_threshold;
+            stored_threshold = hdr.afd_update.new_threshold;
             retval = stored_threshold;
         }
     };
     @hidden
-    action read_stored_threshold_act() {
-        afd_md.threshold = read_stored_threshold.execute(afd_md.vlink_id);
+    action read_stored_threshold() {
+        afd_md.threshold = read_stored_threshold_regact.execute(afd_md.vlink_id);
     }
     @hidden
-    action write_stored_threshold_act() {
-        afd_md.new_threshold = write_stored_threshold.execute(afd_md.vlink_id);
+    action write_stored_threshold() {
+        write_stored_threshold_regact.execute(hdr.afd_update.vlink_id);
+    }
+    @hidden
+    table read_or_write_threshold {
+        key = {
+            hdr.afd_update.isValid() : exact;
+        }
+        actions = {
+            read_stored_threshold;
+            write_stored_threshold;
+        }
+        const entries = {
+            0 : read_stored_threshold();
+            1 : write_stored_threshold();
+        }
     }
 
 	action set_vlink_default() {
@@ -139,16 +169,14 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
 
     apply {
-        if (!hdr.afd_update.isValid()) {
-            tb_match_ip.apply();
-            read_congestion_flag();
-            read_stored_threshold_act();
-            compute_candidates.apply();
-        }else{
-            write_congestion_flag();
-            write_stored_threshold_act();
+        tb_match_ip.apply();
+        read_or_write_congestion_flag.apply();
+        read_or_write_stored_threshold.apply();
+        if (hdr.afd_md.isValid()) {
             drop_ctl = 1;
             exit;
+        } else {
+            compute_candidates.apply();
         }
     }
 }

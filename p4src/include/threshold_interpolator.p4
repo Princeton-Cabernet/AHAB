@@ -235,8 +235,10 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
             (TERNARY_DONT_CARE,  TERNARY_DONT_CARE,  TERNARY_ZERO_CHECK): choose_high_candidate();    // equal to high candidate
 
             (TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK) : choose_low_candidate();     // below low candidate
-            (TERNARY_POS_CHECK,  TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_left();     // between low and mid
-            (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_right();    // between mid and high
+            //(TERNARY_POS_CHECK,  TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_left();     // between low and mid
+            //(TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_NEG_CHECK) : set_interpolate_right();    // between mid and high
+            (TERNARY_POS_CHECK,  TERNARY_NEG_CHECK,  TERNARY_NEG_CHECK) : choose_low_candidate();     // between low and mid
+            (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_NEG_CHECK) : choose_high_candidate();    // between mid and high
             (TERNARY_POS_CHECK,  TERNARY_POS_CHECK,  TERNARY_POS_CHECK) : choose_high_candidate();    // above high candidate
         }
         size = 8;
