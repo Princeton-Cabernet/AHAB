@@ -53,6 +53,7 @@ if register_name == "":
 print("Found register with matching name:", register_name)
 
 register = bfrt_info.table_dict[register_name]
+data_name = list(register.info.data_dict.keys())[0]
 
 while True:
     output_str = ""
@@ -67,10 +68,14 @@ while True:
     for data, key in response:
         index = list(key.to_dict().values())[0]['value']
         values_outer = data.to_dict()
+        values = values_outer[data_name]
+        """
         for k,v in values_outer.items():
+
             if type(v) == list:
                 values = v
                 break
+        """
         if args.pipe == -1:
             if values.count(0) == len(values):
                 blank_entries += 1

@@ -7,8 +7,8 @@ import bfrt_grpc.client as gc
 
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
-parser.add_argument('-v','--value',type=int, help="Value to write to the register cells.", default=0) 
 parser.add_argument('-p','--pipe', type=int, help='Pipe to write to. -1 to write to all.', default=-1)
+parser.add_argument('-v','--value',type=int, help="Value to write to the register cells.", default=0) 
 parser.add_argument('-i','--start-index', type=int, help='First index to write', default=0)
 parser.add_argument('-j','--end-index', type=int, help='Last index to write', default=5)
 parser.add_argument('-n','--register_name',type=str, help="Unique suffix of the name of the register to write", 
@@ -55,20 +55,21 @@ if register_name == "":
     sys.exit(1)
 print("Found register with matching name:", register_name)
 
-
 register = bfrt_info.table_dict[register_name]
 print("Register", register)
 
 print("Getting data name")
-register_data_name = register.info.data_dict.keys()[0]
+register_data_name = list(register.info.data_dict.keys())[0]
 print('Register data name', register_data_name)
 print("Getting data")
 data = register.make_data([gc.DataTuple(register_data_name, int(args.value))])
 
 cells_written = 0
+key_list = list()
+data_list = list()
 for i in range(args.start_index, args.end_index):
-    key = register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)])
-    register.entry_add(target, [key], [data])
-    cells_written =+ 1
-print("Done writing value '%d' to %d cells" % (args.value, cells_written))
 
+    key_list.append(register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)]))
+    data_list.append(data)
+register.entry_add(target, key_list, data_list)
+print("Done writing value '%d' to %d cells for pipe %x" % (args.value, len(key_list), pipe_id))
