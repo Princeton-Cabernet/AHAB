@@ -25,11 +25,9 @@ header afd_metadata_t {
     bytecount_t             bytes_sent_all;  // packet size for total demand simulation
 
     byterate_t              new_threshold;
-    @padding bit<7>         _pad0;
+    @padding bit<6>         _pad0;
     bit<1>                  is_worker;  // Set by parser. Do not write in MATs
-    bit<8>                  congestion_flag;
-    @padding bit<7>         _pad1;
-    bit<1>                  drop_withheld;
+    bit<1>                  congestion_flag;
     byterate_t              max_rate;
 }
 

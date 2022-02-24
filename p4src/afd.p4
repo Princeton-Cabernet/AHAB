@@ -103,7 +103,6 @@ control SwitchIngress(
         // || work_flag == 1 is defensive for debugging
         if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
 	    // If congestion flag is false, dropping is disabled
-            ig_md.afd.drop_withheld = afd_drop_flag_mid;
             afd_drop_flag_mid = 0;
             ig_dprsr_md.drop_ctl = 0;
         } else{
@@ -121,7 +120,6 @@ control SwitchIngress(
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
                              ig_md.afd.bytes_sent_all);
-
     }
 }
 
@@ -174,10 +172,13 @@ control SwitchEgress(
     };
     action grab_new_threshold() {
         hdr.afd_update.new_threshold = grab_new_threshold_regact.execute(eg_md.afd.vlink_id);
+        // Finish setting the recirculation headers
+        hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
+        hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
     }
     action dump_new_threshold() {
         dump_new_threshold_regact.execute(eg_md.afd.vlink_id);
-        // recirc headers aren't needed, erase them
+        // Recirculation headers aren't needed, erase them
         hdr.fake_ethernet.setInvalid();
         hdr.afd_update.setInvalid();
 
@@ -219,13 +220,13 @@ byterate_t threshold_minus_demand;
         }
     };
     action set_congestion_flag() {
-        hdr.afd_update.congestion_flag = set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        set_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action unset_congestion_flag() {
-        hdr.afd_update.congestion_flag = unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+       unset_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action grab_congestion_flag() {
-        hdr.afd_update.congestion_flag = grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
+        hdr.afd_update.congestion_flag = (bit<1>) grab_congestion_flag_regact.execute(eg_md.afd.vlink_id);
     }
     action nop_(){}
 
@@ -257,7 +258,6 @@ byterate_t threshold_minus_demand;
         if (eg_md.afd.is_worker == 0) {
             vtrunk_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
-                                    eg_md.afd.drop_withheld,
                                     eg_md.afd.scaled_pkt_len, 
                                     eg_md.afd.bytes_sent_all,
                                     eg_md.afd.bytes_sent_lo, 
@@ -277,11 +277,6 @@ byterate_t threshold_minus_demand;
                 eg_md.afd.threshold, eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
                 eg_md.afd.candidate_delta_pow,
                 eg_md.afd.new_threshold);
-        } else {
-            // Fake ethernet header signals to ingress that this is an update
-            hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
-            // Update header
-            hdr.afd_update.vlink_id = eg_md.afd.vlink_id;
         }
 
         read_or_write_new_threshold.apply();

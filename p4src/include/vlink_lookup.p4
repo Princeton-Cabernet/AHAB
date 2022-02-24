@@ -2,10 +2,12 @@
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
                     out bit<9> ucast_egress_port, out bit<3> drop_ctl) {
+    @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
-            stored_flag = afd_md.congestion_flag;
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+            stored_flag = (bit<8>) afd_md.congestion_flag;
+            returned_flag = stored_flag;
         }
     };
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) read_congestion_flag_regact = {
@@ -13,15 +15,33 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             returned_flag = stored_flag;
         }
     };
+    @hidden
     action write_congestion_flag() {
         write_congestion_flag_regact.execute(afd_md.vlink_id);
     }
+    @hidden
     action read_congestion_flag() {
-        afd_md.congestion_flag = read_congestion_flag_regact.execute(afd_md.vlink_id);
+        afd_md.congestion_flag = (bit<1>) read_congestion_flag_regact.execute(afd_md.vlink_id);
     }
+    @hidden
+    table read_or_write_congestion_flag {
+        key = {
+            hdr.afd_update.isValid() : exact;
+        }
+        actions = {
+            read_congestion_flag;
+            write_congestion_flag;
+        }
+        const entries = {
+            false : read_congestion_flag();
+            true : write_congestion_flag();
+        }
+        size = 2;
+    }
+            
 
     Register<byterate_t, vlink_index_t>(NUM_VLINKS) stored_thresholds;
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold = {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) read_stored_threshold_regact = {
         void apply(inout byterate_t stored_threshold, out byterate_t retval) {
             if (stored_threshold == 0) {
                 stored_threshold = DEFAULT_THRESHOLD;
@@ -29,21 +49,38 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
             retval = stored_threshold;
         }
     };
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold = {
-        void apply(inout byterate_t stored_threshold) {
-            stored_threshold = afd_md.new_threshold;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(stored_thresholds) write_stored_threshold_regact = {
+        void apply(inout byterate_t stored_threshold, out byterate_t retval) {
+            stored_threshold = afd_md.threshold;
+            retval = stored_threshold;
         }
     };
-    action read_stored_threshold_act() {
-        afd_md.threshold = read_stored_threshold.execute(afd_md.vlink_id);
+    @hidden
+    action read_stored_threshold() {
+        afd_md.threshold = read_stored_threshold_regact.execute(afd_md.vlink_id);
     }
-    action write_stored_threshold_act() {
-        write_stored_threshold.execute(afd_md.vlink_id);
+    @hidden
+    action write_stored_threshold() {
+        write_stored_threshold_regact.execute(afd_md.vlink_id);
+    }
+    @hidden
+    table read_or_write_stored_threshold {
+        key = {
+            hdr.afd_update.isValid() : exact;
+        }
+        actions = {
+            read_stored_threshold;
+            write_stored_threshold;
+        }
+        const entries = {
+            false : read_stored_threshold();
+            true : write_stored_threshold();
+        }
     }
 
 	action set_vlink_default() {
-		afd_md.vlink_id = (vlink_index_t) hdr.ipv4.dst_addr[8:0];
 		afd_md.scaled_pkt_len=(bytecount_t) hdr.ipv4.total_len;
+		afd_md.vlink_id = (bit<16>)hdr.ipv4.dst_addr[8:0];
                 ucast_egress_port = hdr.ipv4.dst_addr[8:0];
 	}
 	action set_vlink_rshift2(vlink_index_t i){
@@ -132,17 +169,20 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
     }
 
     apply {
-        if (!hdr.afd_update.isValid()) {
+        if (hdr.afd_update.isValid()) {
+            afd_md.vlink_id = hdr.afd_update.vlink_id;
+            afd_md.threshold = hdr.afd_update.new_threshold;
+            afd_md.congestion_flag = hdr.afd_update.congestion_flag;
+        } else {
             tb_match_ip.apply();
-            read_congestion_flag();
-            read_stored_threshold_act();
-            compute_candidates.apply();
-            drop_ctl = 0;
-        }else{
-            write_congestion_flag();
-            write_stored_threshold_act();
+        }
+        read_or_write_congestion_flag.apply();
+        read_or_write_stored_threshold.apply();
+        if (hdr.afd_update.isValid()) {
             drop_ctl = 1;
             exit;
+        } else {
+            compute_candidates.apply();
         }
     }
 }

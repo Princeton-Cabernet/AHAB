@@ -1,6 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-control LinkRateTracker(in vlink_index_t vlink_id, in bit<1> drop_withheld,
+control LinkRateTracker(in vlink_index_t vlink_id, 
                         in bytecount_t scaled_pkt_len, in bytecount_t scaled_pkt_len_all,
                         in bytecount_t scaled_pkt_len_lo, in bytecount_t scaled_pkt_len_hi,
                         out byterate_t vlink_rate, out byterate_t vlink_rate_lo, out byterate_t vlink_rate_hi,
