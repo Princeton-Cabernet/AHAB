@@ -105,6 +105,9 @@ control SwitchIngress(
 	    // If congestion flag is false, dropping is disabled
             afd_drop_flag_mid = 0;
             ig_dprsr_md.drop_ctl = 0;
+        } else if (afd_drop_flag_hi == 1) {
+            // if drop_flag_hi, don't bother with ECN, just drop unconditionally
+            ig_dprsr_md.drop_ctl = 1;
         } else if (hdr.tcp.isValid() && (hdr.ipv4.ecn != 0) && (afd_drop_flag_mid == 1)){
             ig_dprsr_md.drop_ctl = 0;
             hdr.ipv4.ecn = 0b11;
