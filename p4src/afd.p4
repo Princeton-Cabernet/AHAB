@@ -66,8 +66,9 @@ control SwitchIngress(
         }
             
 
+ig_intr_md_for_tm.bypass_egress = 1;
         // If the packet is a recirculated update, it will not survive vlink_lookup.
-        vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl);
+        vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl, ig_tm_md.bypass_egress);
 
         bit<1> work_flag;
         worker_generator.apply(epoch, ig_md.afd.vlink_id, work_flag);
@@ -168,6 +169,7 @@ control SwitchEgress(
     Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
     RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) grab_new_threshold_regact = {
         void apply(inout byterate_t stored, out byterate_t retval) {
+            stored = stored;
             retval = stored;
         }
     };

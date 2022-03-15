@@ -1,7 +1,8 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
-                    out bit<9> ucast_egress_port, out bit<3> drop_ctl) {
+                    out bit<9> ucast_egress_port, out bit<3> drop_ctl, 
+                    out bit<1> bypass_egress) {
     @hidden
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) write_congestion_flag_regact = {
@@ -180,7 +181,9 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         read_or_write_stored_threshold.apply();
         if (hdr.afd_update.isValid()) {
             drop_ctl = 1;
+            bypass_egress = 1;
             exit;
+            
         } else {
             compute_candidates.apply();
         }
