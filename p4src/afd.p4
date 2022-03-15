@@ -66,7 +66,6 @@ control SwitchIngress(
         }
             
 
-ig_intr_md_for_tm.bypass_egress = 1;
         // If the packet is a recirculated update, it will not survive vlink_lookup.
         vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl, ig_tm_md.bypass_egress);
 
