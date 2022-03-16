@@ -57,8 +57,9 @@ register = bfrt_info.table_dict[register_name]
 data_name = list(register.info.data_dict.keys())[0]
 
 while True:
+    output_lines : List[str] = []
     output_str = ""
-    output_str += "=============================\n"   
+    output_lines.append("=============================")
     blank_entries = 0;
     key_list = list()
     for i in range(args.start_index, args.end_index):
@@ -70,25 +71,18 @@ while True:
         index = list(key.to_dict().values())[0]['value']
         values_outer = data.to_dict()
         values = values_outer[data_name]
-        """
-        for k,v in values_outer.items():
-
-            if type(v) == list:
-                values = v
-                break
-        """
         if args.pipe == -1:
             if values.count(0) == len(values):
                 blank_entries += 1
             else:
-                print("%d : %s" % (index, str(values)))
+                output_lines.append("{} : {}".format(index, values))
         else:
             value = values[args.pipe]
             if value == 0:
                 blank_entries += 1
             else:
-                print("%d : %s" % (index, str(value)))
-    output_str += "%d zero values read this round\n" % blank_entries
-    output_str += "=============================\n"
-    print(output_str)
+                output_lines.append("{} : {}".format(index, value))
+    output_lines.append("{} zero values read this round".format(blank_entries))
+    output_lines.append("=============================")
+    print('\n'.join(output_lines))
     time.sleep(args.rate)
