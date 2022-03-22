@@ -6,6 +6,8 @@ import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
 
+from typing import List, Tuple, Dict
+
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
 parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape. -1 to scrape all.', default=-1)

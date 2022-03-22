@@ -307,7 +307,7 @@ def read_snapshot_until_success(snapshot_cookie: SnapshotCookie, retries=-1, sle
 
 def main():
     if args.print:
-        print_trig_field_options()
+        print_trig_field_options(args.gress)
         return
 
     
