@@ -10,14 +10,13 @@ header afd_metadata_t {
     bridged_metadata_type_t bmd_type;  // This has to be first for parser lookahead
     vlink_index_t           vlink_id;
     epoch_t                 epoch;
-    vtrunk_index_t          vtrunk_id;
     byterate_t              measured_rate;
     byterate_t              threshold;
     byterate_t              threshold_lo;
     byterate_t              threshold_hi;
     byterate_t              candidate_delta;      // 2**k
     exponent_t              candidate_delta_pow;  // k
-    byterate_t              vtrunk_threshold;
+    byterate_t              vlink_capacity;
 
     bytecount_t             scaled_pkt_len;
     bytecount_t             bytes_sent_lo;   // packet size for lo threshold simulation

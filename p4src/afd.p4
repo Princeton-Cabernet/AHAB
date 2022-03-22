@@ -150,19 +150,18 @@ control SwitchEgress(
     byterate_t vlink_demand;
 
 
-    action load_vtrunk_fair_rate(byterate_t vtrunk_fair_rate) {
-        eg_md.afd.vtrunk_threshold = vtrunk_fair_rate;
+    action load_vlink_capacity(byterate_t vlink_capacity) {
+        eg_md.afd.vlink_capacity = vlink_capacity;
     }
-    table vtrunk_lookup {
+    table capacity_lookup {
         key = {
-            // TODO: assign this in the vlink lookup stage in ingress
-            eg_md.afd.vtrunk_id : exact;
+            eg_md.afd.vlink_id : ternary;
         }
         actions = {
-            load_vtrunk_fair_rate;
+            load_vlink_capacity;
         }
-        default_action = load_vtrunk_fair_rate(DEFAULT_VLINK_CAPACITY);
-        size = NUM_VTRUNKS;
+        default_action = load_vlink_capacity(DEFAULT_VLINK_CAPACITY);
+        size = NUM_VLINKS;
     }
 
     Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
@@ -208,7 +207,8 @@ control SwitchEgress(
     }
 
 
-byterate_t threshold_minus_demand; 
+    byterate_t capacity_minus_demand; 
+
     Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) egr_reg_flags;
     RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) set_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
@@ -242,7 +242,7 @@ byterate_t threshold_minus_demand;
     table read_or_write_congestion_flag {
         key = {
             eg_md.afd.is_worker : exact;
-            threshold_minus_demand : ternary;
+            capacity_minus_demand : ternary;
         }
         actions = {
             grab_congestion_flag;
@@ -264,7 +264,7 @@ byterate_t threshold_minus_demand;
         hdr.fake_ethernet.setValid();
         hdr.afd_update.setValid();
         if (eg_md.afd.is_worker == 0) {
-            vtrunk_lookup.apply();
+            capacity_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
                                     eg_md.afd.scaled_pkt_len, 
                                     eg_md.afd.bytes_sent_all,
@@ -275,13 +275,11 @@ byterate_t threshold_minus_demand;
                                     vlink_rate_hi, 
                                     vlink_demand);
             
-            bit<32> threshold_minus_rate;
-            threshold_minus_rate = eg_md.afd.vtrunk_threshold - vlink_rate;
-            threshold_minus_demand = eg_md.afd.vtrunk_threshold - vlink_demand; 
+            capacity_minus_demand = eg_md.afd.vlink_capacity - vlink_demand; 
 
             threshold_interpolator.apply(
                 vlink_rate, vlink_rate_lo, vlink_rate_hi,
-                eg_md.afd.vtrunk_threshold, 
+                eg_md.afd.vlink_capacity, 
                 eg_md.afd.threshold, eg_md.afd.threshold_lo, eg_md.afd.threshold_hi,
                 eg_md.afd.candidate_delta_pow,
                 eg_md.afd.new_threshold);
