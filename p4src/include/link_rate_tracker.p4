@@ -16,6 +16,7 @@ control LinkRateTracker(in vlink_index_t vlink_id,
     // Only read by the control plane and used to compute vtrunk_fair_rate
     Lpf<bytecount_t, vlink_index_t>(size=NUM_VLINKS) total_demand_lpf;
 
+    Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_vlink_demands;
 
 
     action rate_act() {
@@ -30,11 +31,16 @@ control LinkRateTracker(in vlink_index_t vlink_id,
     action rate_all_act() {
         vlink_demand = total_demand_lpf.execute(scaled_pkt_len_all, vlink_id);
     }
+    action store_vlink_demand() {
+        stored_vlink_demands.write(vlink_id, vlink_demand);
+    }
+    
 
     apply {
         rate_act();
         rate_lo_act();
         rate_hi_act();
         rate_all_act();
+        store_vlink_demand();
     }
 }

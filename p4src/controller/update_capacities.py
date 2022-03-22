@@ -32,6 +32,8 @@ NUM_VLINKS = NUM_VTRUNKS * VLINKS_PER_VTRUNK
 # All (slice, base station) integer identifiers
 ALL_VLINK_IDS = [_ for _ in range(NUM_VLINKS)]
 
+VTRUNK_MASK = ((1 << (NUM_VTRUNKS.bit_length() - 1)) - 1) << VLINK_BITS
+
 
 def vlink_id_to_vtrunk_id(vlink_id : int) -> int:
     return vlink_id >> VLINK_BITS
@@ -48,6 +50,9 @@ def vtrunk_is_valid(vtrunk_id : int) -> bool:
 
 def vlink_is_valid(vlink_id : int) -> bool:
     return 0 <= vlink_id < NUM_VLINKS
+
+def vtrunk_id_to_value_mask_match_pair(vtrunk_id : int) -> Tuple[int, int]:
+    return (vtrunk_id << VLINK_BITS, VTRUNK_MASK)
 
 
 import argparse
@@ -72,7 +77,7 @@ def get_vlink_demands() -> List[int]:
     """ Scrape per-vlink demand registers 
     """
 
-    demand_register = bfrt_info.table_dict["TODO_DEMAND_REGISTER"]
+    demand_register = bfrt_info.table_dict["stored_vlink_demands"]
     data_name = list(demand_register.info.data_dict.keys())[0]
 
 
@@ -81,7 +86,7 @@ def get_vlink_demands() -> List[int]:
         key_list.append(demand_register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)]))
 
     demands_read = [0] * NUM_VLINKS
-    response = register.entry_get(target, key_list, {"from_hw": True})
+    response = demand_register.entry_get(target, key_list, {"from_hw": True})
     count = 0
     for data, key in response:
         vlink_id = list(key.to_dict().values())[0]['value']
@@ -101,7 +106,7 @@ def get_vlink_demands() -> List[int]:
 def compute_vtrunk_thresholds(vlink_demands: List[int]) -> List[int]:
     """ Given scraped vlink demands, compute the per-vtrunk threshold (aka per-vlink capacity)
     """
-    vtrunk_thresholds = [0] * NUM_TRUNKS
+    vtrunk_thresholds = [0] * NUM_VTRUNKS
     trivial_count = 0
     for vtrunk_id in range(NUM_VTRUNKS):
         local_vlink_demands = [vlink_demands[vlink_id] for vlink_id in vtrunk_id_to_vlink_ids(vtrunk_id)]
@@ -117,32 +122,45 @@ def compute_vtrunk_thresholds(vlink_demands: List[int]) -> List[int]:
     return vtrunk_thresholds
 
 
-def write_vtrunk_thresholds(vtrunk_thresholds : List[int]) -> None:
+def write_vtrunk_thresholds(vtrunk_thresholds : List[int], modify: bool) -> None:
     """ Write computed vtrunk thresholds to the data plane.
     """
-    table = bfrt_info.table_dict["vtrunk_lookup"]
+    table = bfrt_info.table_dict["capacity_lookup"]
 
     key_list = list()
     data_list = list()
     for vtrunk_id, vtrunk_threshold in enumerate(vtrunk_thresholds):
-        key_list.append(table.make_key([gc.KeyTuple("eg_md.afd.vtrunk_id")]))
-        data_List.append(table.make_data([gc.DataTuple("vtrunk_fair_rate", vtrunk_threshold),
-                                          "load_vtrunk_fair_rate"]))
-    table.entry_add(target, key_list, data_list)
+        priority = 1  # arbitrary for now
+        match_val, match_mask = vtrunk_id_to_value_mask_match_pair(vtrunk_id)
+        key_list.append(table.make_key([gc.KeyTuple('$MATCH_PRIORITY', priority),
+                                        gc.KeyTuple("eg_md.afd.vlink_id", match_val, match_mask)]))
+        data_list.append(table.make_data([gc.DataTuple("vlink_capacity", vtrunk_threshold)],
+                                          "load_vlink_capacity"))
+    if modify:
+        table.entry_mod(target, key_list, data_list)
+    else:
+        table.entry_add(target, key_list, data_list)
     if args.verbose == 0:
         print(". ", end="")
     else:
         print("Wrote {} vtrunk thresholds".format(len(key_list)))
 
+def clear_table(table_name: str):
+    table = bfrt_info.table_dict[table_name]
+    table.entry_del(target, [])
+
 
 def main():
+    clear_table("capacity_lookup")
+    first_iter = True
     while True:
         vlink_demands = get_vlink_demands()
         vtrunk_thresholds = compute_vtrunk_thresholds(vlink_demands)
-        write_vtrunk_thresholds(vtrunk_thresholds)
+        write_vtrunk_thresholds(vtrunk_thresholds, modify=not first_iter)
         if args.once:
             break
         time.sleep(args.rate)
+        first_iter = False
 
 
 if __name__ == "__main__":
