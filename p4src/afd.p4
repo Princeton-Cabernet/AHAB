@@ -161,7 +161,7 @@ control SwitchEgress(
             load_vlink_capacity;
         }
         default_action = load_vlink_capacity(DEFAULT_VLINK_CAPACITY);
-        size = NUM_VLINKS;
+        size = NUM_VLINK_GROUPS;
     }
 
     Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
