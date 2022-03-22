@@ -10,7 +10,7 @@ interp_output_precision = 8
 bitwidth_of_byterate_t = 32
 drop_rate_input_precision = 6
 drop_rate_output_precision = 16
-max_drop_probability = (1 << drop_rate_output_precision) - 2
+max_drop_probability = (1 << (drop_rate_output_precision - 1)) - 2  # MSB is the sign bit. subtract 1 more so drop rate is never 100%
 simulated_drop_rate_input_precision = 5
 sim_real_drop_precision_diff = drop_rate_input_precision - simulated_drop_rate_input_precision
 
@@ -223,7 +223,7 @@ def gen_files__drop_prob_lookup():
             for denominator in range(1 << (simulated_drop_rate_input_precision - 1), 1 << simulated_drop_rate_input_precision):
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
-                    drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = round(max_drop_probability * drop_rate)
                     drop_probability = min(max_drop_probability, drop_probability)
                     fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
     for suffix in ["_mid"]:
@@ -231,7 +231,7 @@ def gen_files__drop_prob_lookup():
             for denominator in range(1 << (drop_rate_input_precision - 1), 1 << drop_rate_input_precision):
                 for numerator in range(denominator + 1):
                     drop_rate = 1 - (numerator / denominator)
-                    drop_probability = round(((1 << drop_rate_output_precision) - 1) * drop_rate)
+                    drop_probability = round(max_drop_probability * drop_rate)
                     drop_probability = min(max_drop_probability, drop_probability)
                     fp.write(entryf.format(numerator, denominator, suffix, drop_probability))
 
