@@ -20,11 +20,10 @@ These bits should be added after reading and discarded before writing, and we sh
 register cells per-pipe for the number of vlinks expected to be connected to a single pipe.
 """
 
-MAX_VTRUNK_BANDWIDTH = 6450 * 10  # 1GB
 # base stations per UPF
 NUM_VTRUNKS = 32
 # log_2(slices per base-station)
-VLINK_BITS = 4
+VLINK_BITS = 6
 # slices per base station
 VLINKS_PER_VTRUNK = 2 ** VLINK_BITS
 # number of vlinks across all base stations
@@ -56,12 +55,15 @@ def vtrunk_id_to_value_mask_match_pair(vtrunk_id : int) -> Tuple[int, int]:
 
 
 import argparse
-parser = argparse.ArgumentParser(description='Add mirror session to switch')
+parser = argparse.ArgumentParser(description='Add mirror session to switch', 
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-r', '--rate', type=float, default=1, help='Update period in seconds.')
 parser.add_argument('-o', '--once', action='store_true',   help="Only perform one update. Otherwise, update indefinitely")
 parser.add_argument('--verbose', '-v', action='count', default=0)
 parser.add_argument('-f', '--fixed', type=int, default=0, 
                     help="Fixed capacity which, if provided, will be installed instead of the max-min fairness capacity.")
+parser.add_argument('-m', '--max', type=int, default=6450*10,
+                    help="Default fixed capacity per VLink Group (AKA VTrunk), to be fairly shared within the group")
 args=parser.parse_args()
 
 
@@ -105,22 +107,25 @@ def get_vlink_demands() -> List[int]:
     return demands_read
 
 
-def compute_vtrunk_thresholds(vlink_demands: List[int]) -> List[int]:
+def compute_vtrunk_thresholds(vlink_demands: List[int], vtrunk_capacity: int ) -> List[int]:
     """ Given scraped vlink demands, compute the per-vtrunk threshold (aka per-vlink capacity)
     """
     vtrunk_thresholds = [0] * NUM_VTRUNKS
     trivial_count = 0
     for vtrunk_id in range(NUM_VTRUNKS):
         local_vlink_demands = [vlink_demands[vlink_id] for vlink_id in vtrunk_id_to_vlink_ids(vtrunk_id)]
-        computed_threshold = correct_threshold(local_vlink_demands, MAX_VTRUNK_BANDWIDTH)
-        if computed_threshold == MAX_VTRUNK_BANDWIDTH:
+        if (sum(local_vlink_demands) != 0):
+            print("vtrunk {} has local vlink demands {}".format(vtrunk_id, local_vlink_demands))
+            print("max vtrunk bandwidth is {}. Current vtrunk usage is {}.".format(vtrunk_capacity, sum(local_vlink_demands)))
+        computed_threshold = correct_threshold(local_vlink_demands, vtrunk_capacity)
+        if computed_threshold == vtrunk_capacity:
             trivial_count += 1
         vtrunk_thresholds[vtrunk_id] = computed_threshold
     if args.verbose > 0:
         print("Computed {} vtrunk thresholds. {} were trivial".format(len(vtrunk_thresholds), trivial_count))
     if args.verbose > 1:
         print("Nontrivial thresholds: {}".format(
-            ", ".join(["{}:{}".format(i,thresh) for i, thresh in enumerate(vtrunk_thresholds) if thresh != MAX_VTRUNK_BANDWIDTH])))
+            ", ".join(["{}:{}".format(i,thresh) for i, thresh in enumerate(vtrunk_thresholds) if thresh != vtrunk_capacity])))
     return vtrunk_thresholds
 
 
@@ -164,7 +169,7 @@ def main():
     first_iter = True
     while True:
         vlink_demands = get_vlink_demands()
-        vtrunk_thresholds = compute_vtrunk_thresholds(vlink_demands)
+        vtrunk_thresholds = compute_vtrunk_thresholds(vlink_demands, args.max)
         write_vtrunk_thresholds(vtrunk_thresholds, modify=not first_iter)
         if args.once:
             break
