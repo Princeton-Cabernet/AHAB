@@ -10,7 +10,7 @@
 
 #include "include/vlink_lookup.p4"
 #include "include/rate_estimator.p4"
-#include "include/rate_enforcer.p4"
+#include "include/tcp_enforcer.p4"
 #include "include/threshold_interpolator.p4"
 #include "include/max_rate_estimator.p4"
 #include "include/link_rate_tracker.p4"
@@ -46,7 +46,7 @@ control SwitchIngress(
 
     VLinkLookup() vlink_lookup;
     RateEstimator() rate_estimator;
-    RateEnforcer() rate_enforcer;
+    TcpEnforcer() tcp_enforcer;
     ByteDumps() byte_dumps;
     WorkerGenerator() worker_generator;
 
@@ -89,9 +89,31 @@ control SwitchIngress(
 
 
         // Get real drop flag and two simulated drop flags
-        bit<1> afd_drop_flag_lo;
-        bit<1> afd_drop_flag_mid;
-        bit<1> afd_drop_flag_hi;
+        bit<1> afd_drop_flag_lo = 0;
+        bit<1> afd_drop_flag_mid = 0;
+        bit<1> afd_drop_flag_hi = 0;
+        bit<1> ecn_flag = 0;
+        tcp_enforcer.apply(ig_md.afd.measured_rate,
+                           hdr.ipv4.total_len,
+                           ig_md.afd.threshold_lo,
+                           ig_md.afd.threshold,
+                           ig_md.afd.threshold_hi,
+                             hdr.ipv4.src_addr,
+                             hdr.ipv4.dst_addr,
+                             hdr.ipv4.protocol,
+                             ig_md.sport,
+                             ig_md.dport,
+                           afd_drop_flag_mid,
+                           ecn_flag);
+        if (afd_drop_flag_mid == 1) {
+            ig_dprsr_md.drop_ctl = 1;
+        }
+        if (ecn_flag == 1) {
+            hdr.ipv4.ecn = 0b11;
+        }
+                            
+                           
+        /*
         rate_enforcer.apply(ig_md.afd.measured_rate,
                             ig_md.afd.threshold_lo,
                             ig_md.afd.threshold,
@@ -114,6 +136,7 @@ control SwitchIngress(
         } else {
             ig_dprsr_md.drop_ctl = (bit<3>) afd_drop_flag_mid;
         }
+        */
         
 
         //always dump
