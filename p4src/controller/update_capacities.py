@@ -60,6 +60,8 @@ parser = argparse.ArgumentParser(description='Add mirror session to switch')
 parser.add_argument('-r', '--rate', type=float, default=1, help='Update period in seconds.')
 parser.add_argument('-o', '--once', action='store_true',   help="Only perform one update. Otherwise, update indefinitely")
 parser.add_argument('--verbose', '-v', action='count', default=0)
+parser.add_argument('-f', '--fixed', type=int, default=0, 
+                    help="Fixed capacity which, if provided, will be installed instead of the max-min fairness capacity.")
 args=parser.parse_args()
 
 
@@ -152,6 +154,13 @@ def clear_table(table_name: str):
 
 def main():
     clear_table("capacity_lookup")
+
+    if args.fixed > 0:
+        print("Writing fixed vlink capacities")
+        write_vtrunk_thresholds([args.fixed] * NUM_VTRUNKS, modify=False)
+        print("Done writing fixed vlink capacities")
+        return
+
     first_iter = True
     while True:
         vlink_demands = get_vlink_demands()
