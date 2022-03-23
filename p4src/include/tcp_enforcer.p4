@@ -12,40 +12,42 @@ control TcpEnforcer(in byterate_t measured_rate,
                       in bit<8> proto,
                       in bit<16> src_port,
                       in bit<16> dst_port,
-                     out bit<1> drop_flag,
-                     out bit<1> ecn_flag) {
+                     out bit<8> drop_flag,
+                     out bit<8> ecn_flag) {
     
     // difference (candidate - measured_rate) for each candidate
     byterate_t dthresh_lo = 0;
     byterate_t dthresh_mid = 0;
     byterate_t dthresh_hi = 0;
 
-    bit<16> scaled_down_pktlen; // input to the "count_til_*" registers
-    bit<16> scaled_down_pktlen_lo; // input if lo is exceeded but mid is not
-    bit<16> scaled_down_pktlen_mid; // input if mid is exceeded
+    bit<32> scaled_down_pktlen; // input to the "count_til_*" registers
+    bit<32> scaled_down_pktlen_lo; // input if lo is exceeded but mid is not
+    bit<32> scaled_down_pktlen_mid; // input if mid is exceeded
+    bit<32> drop_reset_val;
+    bit<32> ecn_reset_val;
 
-    bit<1> mid_exceeded_flag;
+    bit<8> mid_exceeded_flag;
     
 
-    Register<bit<16>, cms_index_t>(size=CMS_HEIGHT) count_til_drop_reg;
-    Register<bit<16>, cms_index_t>(size=CMS_HEIGHT) count_til_ecn_reg;
+    Register<bit<32>, cms_index_t>(size=CMS_HEIGHT) count_til_drop_reg;
+    Register<bit<32>, cms_index_t>(size=CMS_HEIGHT) count_til_ecn_reg;
 
-    RegisterAction<bit<16>, cms_index_t, bit<1>>(count_til_drop_reg) update_count_til_drop = {
-        void apply(inout bit<16> stored, out bit<1> returned) {
+    RegisterAction<bit<32>, cms_index_t, bit<8>>(count_til_drop_reg) update_count_til_drop = {
+        void apply(inout bit<32> stored, out bit<8> returned) {
             if (stored < scaled_down_pktlen) {
-                stored = 37500;  // 400 * 1500 (MTU) divided by 16.
-                returned = mid_exceeded_flag;
+                stored = drop_reset_val;
+                returned = 1;
             } else {
                 stored = stored - scaled_down_pktlen;
                 returned = 0;
             }
         }
     };
-    RegisterAction<bit<16>, cms_index_t, bit<1>>(count_til_ecn_reg) update_count_til_ecn = {
-        void apply(inout bit<16> stored, out bit<1> returned) {
+    RegisterAction<bit<32>, cms_index_t, bit<8>>(count_til_ecn_reg) update_count_til_ecn = {
+        void apply(inout bit<32> stored, out bit<8> returned) {
             if (stored < scaled_down_pktlen) {
-                stored = 3750;  // 40*1500 (MTU) divided by 16
-                returned = mid_exceeded_flag;
+                stored = ecn_reset_val;
+                returned = 1;
             } else {
                 stored = stored - scaled_down_pktlen;
                 returned = 0;
@@ -107,9 +109,13 @@ control TcpEnforcer(in byterate_t measured_rate,
         default_action = calculate_threshold_differences_act;
     }
 
+    bit<32> pkt_len32;
+
     action scale_down_pktlens_act() {
-        scaled_down_pktlen_mid = pkt_len >> 4;  // divide by 16
-        scaled_down_pktlen_lo = pkt_len >> 5; // divide by 32
+        scaled_down_pktlen_mid = (pkt_len32 >> 4);  // divide by 16
+        scaled_down_pktlen_lo = (pkt_len32 >> 5); // divide by 32  
+        drop_reset_val = threshold_mid  << 1; // times 32, then divided by 16
+        ecn_reset_val = threshold_mid >> 1; // times 8, then divided by 16 
     }
     table scale_down_pktlens_tbl {
         key = {}
@@ -117,9 +123,10 @@ control TcpEnforcer(in byterate_t measured_rate,
         size = 1;
         default_action = scale_down_pktlens_act();
     }
+    
     action correct_pktlens_act() {
-        scaled_down_pktlen_lo = max<bit<16>>(1, scaled_down_pktlen_lo);  // make sure its still nonzero
-        scaled_down_pktlen_mid = max<bit<16>>(1, scaled_down_pktlen_mid);  // make sure its still nonzero
+        scaled_down_pktlen_lo = max<bit<32>>(1, scaled_down_pktlen_lo);  // make sure its still nonzero
+        scaled_down_pktlen_mid = max<bit<32>>(1, scaled_down_pktlen_mid);  // make sure its still nonzero
     }
     table correct_pktlens_tbl {
         key = {}
@@ -130,6 +137,9 @@ control TcpEnforcer(in byterate_t measured_rate,
         
 
     apply {
+        @in_hash{
+            pkt_len32 = (bit<32>) pkt_len;
+        }
         scale_down_pktlens_tbl.apply();
         correct_pktlens_tbl.apply();
 
@@ -137,16 +147,18 @@ control TcpEnforcer(in byterate_t measured_rate,
         calculate_threshold_differences_tbl.apply();
         check_candidates_exceeded.apply();
 
-        drop_flag = (bit<1>) update_count_til_drop.execute(hash_1.get({ src_ip,
+        drop_flag = update_count_til_drop.execute(hash_1.get({ src_ip,
                                                             dst_ip,
                                                             proto,
                                                             src_port,
                                                             dst_port}));
-        ecn_flag = (bit<1>) update_count_til_ecn.execute(hash_2.get({ src_ip,
+        drop_flag = drop_flag & mid_exceeded_flag;
+        ecn_flag = update_count_til_ecn.execute(hash_2.get({ src_ip,
                                                             dst_ip,
                                                             proto,
                                                             src_port,
                                                             dst_port}));
+        ecn_flag = ecn_flag & mid_exceeded_flag;
 
 	}
 }

@@ -90,9 +90,13 @@ control SwitchIngress(
 
         // Get real drop flag and two simulated drop flags
         bit<1> afd_drop_flag_lo = 0;
-        bit<1> afd_drop_flag_mid = 0;
+// TODO: these annotations have no effect. Do we need to move these fields to metadata?
+@pa_no_overlay("ingress", "afd_drop_flag_mid")
+        bit<8> afd_drop_flag_mid = 0;
         bit<1> afd_drop_flag_hi = 0;
-        bit<1> ecn_flag = 0;
+@pa_no_overlay("ingress", "ecn_flag")
+@pa_no_overlay("ingress", "ig_dprsr_md.drop_ctl")
+        bit<8> ecn_flag = 1;
         tcp_enforcer.apply(ig_md.afd.measured_rate,
                            hdr.ipv4.total_len,
                            ig_md.afd.threshold_lo,
@@ -105,10 +109,10 @@ control SwitchIngress(
                              ig_md.dport,
                            afd_drop_flag_mid,
                            ecn_flag);
-        if (afd_drop_flag_mid == 1) {
+        if (afd_drop_flag_mid != 0) {
             ig_dprsr_md.drop_ctl = 1;
         }
-        if (ecn_flag == 1) {
+        if (ecn_flag != 0) {
             hdr.ipv4.ecn = 0b11;
         }
                             
