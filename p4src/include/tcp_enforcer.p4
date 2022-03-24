@@ -12,7 +12,9 @@ control TcpEnforcer(in byterate_t measured_rate,
                       in bit<8> proto,
                       in bit<16> src_port,
                       in bit<16> dst_port,
-                     out bit<8> drop_flag,
+                     out bit<1> drop_flag_lo,
+                     out bit<1> drop_flag_mid,
+                     out bit<1> drop_flag_hi,
                      out bit<8> ecn_flag) {
     
     // difference (candidate - measured_rate) for each candidate
@@ -140,14 +142,15 @@ control TcpEnforcer(in byterate_t measured_rate,
                                 proto,
                                 src_port,
                                 dst_port});
-
         if(mid_exceeded_flag==1){
-            drop_flag= countdown_drop.execute(reg_index);
+            drop_flag_mid= (bit<1>) countdown_drop.execute(reg_index);
             ecn_flag = countdown_ecn.execute(reg_index);
         }else{
-            drop_flag= countdown_nodrop.execute(reg_index);
+            drop_flag_mid= (bit<1>) countdown_nodrop.execute(reg_index);
             ecn_flag = countdown_noecn.execute(reg_index);
         }
+        drop_flag_lo=drop_flag_mid;
+        drop_flag_hi=0;
 	}
 }
 

@@ -94,7 +94,7 @@ control SwitchIngress(
         bit<1> afd_drop_flag_lo = 0;
 // TODO: these annotations have no effect. Do we need to move these fields to metadata?
 @pa_no_overlay("ingress", "afd_drop_flag_mid")
-        bit<8> afd_drop_flag_mid = 0;
+        bit<1> afd_drop_flag_mid = 0;
         bit<1> afd_drop_flag_hi = 0;
 @pa_no_overlay("ingress", "ecn_flag")
 @pa_no_overlay("ingress", "ig_dprsr_md.drop_ctl")
@@ -109,7 +109,9 @@ control SwitchIngress(
                              hdr.ipv4.protocol,
                              ig_md.sport,
                              ig_md.dport,
+                           afd_drop_flag_lo,
                            afd_drop_flag_mid,
+                           afd_drop_flag_hi,
                            ecn_flag);
         if (afd_drop_flag_mid != 0) {
             ig_dprsr_md.drop_ctl = 1;
