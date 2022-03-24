@@ -62,7 +62,9 @@ control TcpEnforcer(in byterate_t measured_rate,
         }
         size = 4;
         const entries = {
+            (TERNARY_NONNEG_CHECK, TERNARY_NONNEG_CHECK) : set_neither_exceeded();
             (TERNARY_NEG_CHECK, TERNARY_NONNEG_CHECK) : set_lo_exceeded();
+            (TERNARY_NEG_CHECK, TERNARY_NEG_CHECK) : set_mid_exceeded();
             (TERNARY_DONT_CARE, TERNARY_NEG_CHECK) : set_mid_exceeded();
         }
         default_action = set_neither_exceeded();
