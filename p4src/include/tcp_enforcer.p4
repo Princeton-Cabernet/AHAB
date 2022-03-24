@@ -43,7 +43,7 @@ control TcpEnforcer(in byterate_t measured_rate,
         mid_exceeded_flag = 0;
     }
     action set_lo_exceeded() { 
-        scaled_down_pktlen = pkt_len32 >> 3; //divide by 8
+        scaled_down_pktlen = pkt_len32 >> 2; //divide by 4
         mid_exceeded_flag = 0;
     }
     action set_mid_exceeded() {
@@ -71,7 +71,7 @@ control TcpEnforcer(in byterate_t measured_rate,
     }
 
     action prep_reset_val_act(){
-        drop_reset_val = threshold_mid  << 5; // times 32
+        drop_reset_val = threshold_mid  << 4; // times 32
         ecn_reset_val = threshold_mid  << 3; // times 8
     }
 
@@ -133,7 +133,7 @@ control TcpEnforcer(in byterate_t measured_rate,
         }
         calculate_threshold_differences_act();
         prep_reset_val_act();
-        
+
         check_candidates_exceeded.apply();
 
         reg_index=hash_1.get({  src_ip,
