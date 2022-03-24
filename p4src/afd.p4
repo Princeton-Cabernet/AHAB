@@ -86,7 +86,9 @@ control SwitchIngress(
                              ig_md.dport,
                              ig_md.afd.scaled_pkt_len,
                              ig_md.afd.measured_rate);
-
+			     
+	// Debug rate output
+	hdr.ethernet.src_addr=(bit<48>) ig_md.afd.measured_rate;
 
         // Get real drop flag and two simulated drop flags
         bit<1> afd_drop_flag_lo = 0;
