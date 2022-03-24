@@ -166,7 +166,12 @@ control TcpEnforcer(in byterate_t measured_rate,
             ecn_flag = countdown_noecn.execute(reg_index);
         }
         drop_flag_lo=drop_flag_mid;
-        drop_flag_hi=0;
+        if(hi_exceeded_flag==1){
+            drop_flag_hi=drop_flag_mid;
+        }else{
+            drop_flag_hi=0;   
+        }
+       
 	}
 }
 
