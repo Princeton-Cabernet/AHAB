@@ -16,63 +16,69 @@ control TcpEnforcer(in byterate_t measured_rate,
                      out bit<8> ecn_flag) {
     
     // difference (candidate - measured_rate) for each candidate
-    byterate_t dthresh_lo = 0;
-    byterate_t dthresh_mid = 0;
-    byterate_t dthresh_hi = 0;
+    byterate_t dthresh_lo = threshold_lo - measured_rate;
+    byterate_t dthresh_mid = threshold_mid - measured_rate;
+    byterate_t dthresh_hi = threshold_hi - measured_rate;
 
-    bit<32> pkt_len32;
-    bit<32> scaled_down_pktlen; // input to the "count_til_*" registers
-    bit<32> drop_reset_val;
-    bit<32> ecn_reset_val;
+    bit<32> scaled_down_pktlen = (bit<32>) pkt_len; // input to the "count_til_*" registers
+    bit<32> drop_reset_val = threshold_mid << 5; // T*32
+    bit<32> ecn_reset_val = threshold_mid << 3; //T*8
 
-    bit<8> mid_exceeded_flag;
-    
-    action calculate_threshold_differences_act() {
-        dthresh_lo  = threshold_lo - measured_rate;
-        dthresh_mid = threshold_mid - measured_rate;
-        dthresh_hi  = threshold_hi - measured_rate;
-    }
-
+    bit<8> low_exceeded_flag = 0;
+    bit<8> mid_exceeded_flag = 0;
+    bit<8> hi_exceeded_flag = 0;
 
 // width of this key and mask should equal sizeof(byterate_t)
 #define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
 #define TERNARY_NONNEG_CHECK 32w0 &&& 32w0x80000000
 #define TERNARY_DONT_CARE 32w0 &&& 32w0
     action set_neither_exceeded() {
-        scaled_down_pktlen = 0;
+        low_exceeded_flag = 0;
         mid_exceeded_flag = 0;
+        hi_exceeded_flag  = 0;
+
+        scaled_down_pktlen=0;
     }
     action set_lo_exceeded() { 
-        scaled_down_pktlen = pkt_len32 >> 2; //divide by 4
+        low_exceeded_flag = 1;
         mid_exceeded_flag = 0;
+        hi_exceeded_flag  = 0;
+
+        scaled_down_pktlen = scaled_down_pktlen >> 2; // slow clear
     }
     action set_mid_exceeded() {
-        scaled_down_pktlen = pkt_len32;
+        low_exceeded_flag = 1;
         mid_exceeded_flag = 1;
+        hi_exceeded_flag  = 0;
+    }
+    action set_hi_exceeded() {
+        low_exceeded_flag = 1;
+        mid_exceeded_flag = 1;
+        hi_exceeded_flag  = 1;
+
+        drop_reset_val = 0;
+        ecn_reset_val = 0;
     }
     table check_candidates_exceeded { 
         key = {
             dthresh_lo  : ternary; // negative if threshold_lo exceeded
             dthresh_mid : ternary; // negative if threshold_mid exceeded
+            dthresh_hi : ternary; // negative if threshold_mid exceeded
         }
         actions = {
             set_neither_exceeded;
             set_lo_exceeded;
             set_mid_exceeded;
+            set_hi_exceeded;
         }
         size = 4;
         const entries = {
-            (TERNARY_NONNEG_CHECK, TERNARY_NONNEG_CHECK) : set_neither_exceeded();
-            (TERNARY_NEG_CHECK, TERNARY_NONNEG_CHECK) : set_lo_exceeded();
-            (TERNARY_NEG_CHECK, TERNARY_NEG_CHECK) : set_mid_exceeded();
-            (TERNARY_DONT_CARE, TERNARY_NEG_CHECK) : set_mid_exceeded();
+            (TERNARY_NONNEG_CHECK, TERNARY_NONNEG_CHECK, TERNARY_NONNEG_CHECK) : set_neither_exceeded();
+            (TERNARY_NEG_CHECK, TERNARY_NONNEG_CHECK, TERNARY_NONNEG_CHECK) : set_lo_exceeded();
+            (TERNARY_NEG_CHECK, TERNARY_NEG_CHECK, TERNARY_NONNEG_CHECK) : set_mid_exceeded();
+            (TERNARY_NEG_CHECK, TERNARY_NEG_CHECK, TERNARY_NEG_CHECK) : set_hi_exceeded();
         }
         default_action = set_neither_exceeded();
-    }
-
-    action prep_reset_val_act(){
-        drop_reset_val = threshold_mid  << 4; // times 32
-        ecn_reset_val = threshold_mid  << 3; // times 8
     }
 
     Register<bit<32>, cms_index_t>(size=CMS_HEIGHT) count_til_drop_reg;
@@ -125,18 +131,11 @@ control TcpEnforcer(in byterate_t measured_rate,
     };
     
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_1;
-    cms_index_t reg_index;
 
     apply {
-        @in_hash{
-            pkt_len32 = (bit<32>) pkt_len;
-        }
-        calculate_threshold_differences_act();
-        prep_reset_val_act();
-
         check_candidates_exceeded.apply();
 
-        reg_index=hash_1.get({  src_ip,
+        cms_index_t reg_index=hash_1.get({  src_ip,
                                 dst_ip,
                                 proto,
                                 src_port,
