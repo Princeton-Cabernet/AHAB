@@ -115,7 +115,11 @@ control SwitchIngress(
             ig_dprsr_md.drop_ctl = 1;
         }
         if (ecn_flag != 0) {
-            hdr.ipv4.ecn = 0b11;
+            if(hdr.ipv4.ecn != 0){
+                hdr.ipv4.ecn = 0b11;
+            }else{
+                ig_dprsr_md.drop_ctl = 1;
+            }    
         }
                             
                            
