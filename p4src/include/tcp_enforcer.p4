@@ -4,9 +4,9 @@
 
 control TcpEnforcer(in byterate_t measured_rate,
                      in bit<16> pkt_len,
-                     in byterate_t threshold_lo,
+                     in byterate_t threshold_lo,//ignored, always 0.5x
                      in byterate_t threshold_mid,
-                     in byterate_t threshold_hi,
+                     in byterate_t threshold_hi,//ignored, always 1.5x
                       in bit<32> src_ip,
                       in bit<32> dst_ip,
                       in bit<8> proto,
@@ -17,10 +17,23 @@ control TcpEnforcer(in byterate_t measured_rate,
                      out bit<1> drop_flag_hi,
                      out bit<8> ecn_flag) {
     
+    byterate_t threshold_lo_50;//0.5x
+    action calc_thres_offset_step0(){
+        threshold_lo_50 = threshold_mid >> 1;
+    }
+    byterate_t threshold_hi_50;//1.5x
+    action calc_thres_offset_step1(){
+        threshold_hi_50 = threshold_mid+threshold_lo_50;
+    }
     // difference (candidate - measured_rate) for each candidate
-    byterate_t dthresh_lo = threshold_lo - measured_rate;
-    byterate_t dthresh_mid = threshold_mid - measured_rate;
-    byterate_t dthresh_hi = threshold_hi - measured_rate;
+    byterate_t dthresh_lo;
+    byterate_t dthresh_mid;
+    byterate_t dthresh_hi;
+    action calc_thres_offset_step2(){
+        dthresh_lo = threshold_lo_50 - measured_rate;
+        dthresh_mid = threshold_mid - measured_rate;
+        dthresh_hi = threshold_hi_50 - measured_rate;
+    }
 
     bit<32> scaled_down_pktlen = (bit<32>) pkt_len; // input to the "count_til_*" registers
     bit<32> drop_reset_val = threshold_mid << 5; // T*32
@@ -135,6 +148,9 @@ control TcpEnforcer(in byterate_t measured_rate,
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_1;
 
     apply {
+        calc_thres_offset_step0();
+        calc_thres_offset_step1();
+        calc_thres_offset_step2();
         check_candidates_exceeded.apply();
 
         cms_index_t reg_index=hash_1.get({  src_ip,
