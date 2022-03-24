@@ -133,6 +133,8 @@ control TcpEnforcer(in byterate_t measured_rate,
         }
         calculate_threshold_differences_act();
         prep_reset_val_act();
+        
+        check_candidates_exceeded.apply();
 
         reg_index=hash_1.get({  src_ip,
                                 dst_ip,
