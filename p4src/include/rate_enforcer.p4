@@ -52,6 +52,65 @@ control RateEnforcer(in byterate_t measured_rate,
     bit<1> lo_exceeded_flag = 0;
     bit<1> mid_exceeded_flag = 0;
     bit<1> hi_exceeded_flag = 0;
+
+// width of this key and mask should equal sizeof(byterate_t)
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+#define TERNARY_NONNEG_CHECK 32w0 &&& 32w0x80000000
+#define TERNARY_DONT_CARE 32w0 &&& 32w0
+    @hidden
+    action set_lo_exceeded_flag(bit<1> flag) { 
+        lo_exceeded_flag = flag;
+    }
+    @hidden
+    table check_lo_exceeded { 
+        key = {
+            dthresh_lo  : ternary;
+        }
+        actions = {
+            set_lo_exceeded_flag;
+        }
+        size = 2;
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_lo_exceeded_flag(1);
+        }
+        default_action = set_lo_exceeded_flag(0);
+    }
+    @hidden
+    action set_mid_exceeded_flag(bit<1> flag) { 
+        mid_exceeded_flag = flag;
+    }
+    @hidden
+    table check_mid_exceeded { 
+        key = {
+            dthresh_mid  : ternary;
+        }
+        actions = {
+            set_mid_exceeded_flag;
+        }
+        size = 2;
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_mid_exceeded_flag(1);
+        }
+        default_action = set_mid_exceeded_flag(0);
+    }
+    @hidden
+    action set_hi_exceeded_flag(bit<1> flag) { 
+        hi_exceeded_flag = flag;
+    }
+    @hidden
+    table check_hi_exceeded { 
+        key = {
+            dthresh_hi  : ternary;
+        }
+        actions = {
+            set_hi_exceeded_flag;
+        }
+        size = 2;
+        const entries = {
+            (TERNARY_NEG_CHECK) : set_hi_exceeded_flag(1);
+        }
+        default_action = set_hi_exceeded_flag(0);
+    }
     
     @hidden
     Register<bit<8>, bit<8>>(32) flipflop_reg;
@@ -262,12 +321,6 @@ control RateEnforcer(in byterate_t measured_rate,
         }
     }
 
-
-// width of this key and mask should equal sizeof(byterate_t)
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_NONNEG_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
-
     /* --------------------------------------------------------------------------------------
      * Approximate the fair rates and measured rate as narrower integers for the lookup table
      * -------------------------------------------------------------------------------------- */
@@ -361,49 +414,59 @@ control RateEnforcer(in byterate_t measured_rate,
         }
 	}
 
-    action calculate_threshold_differences() {
+    action udp_calculate_dthres() {
         dthresh_lo  = threshold_lo - measured_rate;
         dthresh_mid = threshold_mid - measured_rate;
         dthresh_hi  = threshold_hi - measured_rate;
     }
 
     // ==== For TCP ====
+    byterate_t dthresh_lo_50;
+    byterate_t dthresh_hi_50;
+
+    byterate_t threshold_mid_50p;
+    byterate_t threshold_mid_150p;
+
+    Register<bit<32>, bit<32> >(size=32) dummy_reg;
+    MathUnit<bit<32>>(MathOp_t.MUL, 24, 16) mul_then_div_150p;//1.5x: multiply 24, then divide 16
+    RegisterAction<bit<32>, bit<32>, bit<32>>(dummy_reg) get_thresmid_150p = {
+        void apply(inout bit<32> val, out bit<32> ret) {
+            val = mul_then_div_150p.execute(  threshold_mid );
+            ret = val;
+        }
+    };
+
+    action tcp_calculate_dthres_step0(){
+        threshold_mid_50p = threshold_mid >> 1;
+        threshold_mid_150p = get_thresmid_150p.execute(0);
+    }
+    action tcp_calculate_dthres_step1(){
+        dthresh_lo_50 = threshold_mid_50p - measured_rate;
+        dthresh_hi_50 = threshold_mid_150p - measured_rate;
+    }
+
     bit<32> scaled_down_pktlen = (bit<32>) pkt_len; // input to the "count_til_*" registers
     bit<32> drop_reset_val = threshold_mid << 5; // T*32
     bit<32> ecn_reset_val = threshold_mid << 3; //T*8
 
     action set_neither_exceeded() {
-        lo_exceeded_flag = 0;
-        mid_exceeded_flag = 0;
-        hi_exceeded_flag  = 0;
-
         scaled_down_pktlen=0;
     }
     action set_lo_exceeded() { 
-        lo_exceeded_flag = 1;
-        mid_exceeded_flag = 0;
-        hi_exceeded_flag  = 0;
-
         scaled_down_pktlen = scaled_down_pktlen >> 2; // slow clear
     }
     action set_mid_exceeded() {
-        lo_exceeded_flag = 1;
-        mid_exceeded_flag = 1;
-        hi_exceeded_flag  = 0;
+        //do nothing. mid_exceeded_flag already set separately
     }
     action set_hi_exceeded() {
-        lo_exceeded_flag = 1;
-        mid_exceeded_flag = 1;
-        hi_exceeded_flag  = 1;
-
         drop_reset_val = 0;
         ecn_reset_val = 0;
     }
     table check_candidates_exceeded { 
         key = {
-            dthresh_lo  : ternary; // negative if threshold_lo exceeded
+            dthresh_lo_50  : ternary; // negative if threshold_lo exceeded
             dthresh_mid : ternary; // negative if threshold_mid exceeded
-            dthresh_hi : ternary; // negative if threshold_mid exceeded
+            dthresh_hi_50 : ternary; // negative if threshold_mid exceeded
         }
         actions = {
             set_neither_exceeded;
@@ -471,10 +534,16 @@ control RateEnforcer(in byterate_t measured_rate,
     };
 
     apply {
-        calculate_threshold_differences();
-        check_candidates_exceeded.apply();
+        // ==== UDP ====
+        udp_calculate_dthres();
+        check_lo_exceeded.apply();
+        check_mid_exceeded.apply();
+        check_hi_exceeded.apply();
 
         // ==== TCP ====
+        tcp_calculate_dthres_step0();
+        tcp_calculate_dthres_step1();
+        check_candidates_exceeded.apply();
         if(mid_exceeded_flag==1){
             tcp_drop_flag_mid= (bit<1>) countdown_drop.execute(reg_index);
             ecn_flag = countdown_ecn.execute(reg_index);

@@ -101,6 +101,9 @@ control SwitchIngress(
             hdr.ipv4.src_addr,hdr.ipv4.dst_addr,
             hdr.tcp.src_port,hdr.tcp.dst_port});
 
+        bit<32> copied_rate;
+        @in_hash{ copied_rate=ig_md.afd.measured_rate; }
+
         bit<32> copied_t_lo;
         bit<32> copied_t_mid;
         bit<32> copied_t_hi;
@@ -108,7 +111,7 @@ control SwitchIngress(
         @in_hash{ copied_t_mid=ig_md.afd.threshold;  }
         @in_hash{ copied_t_hi=ig_md.afd.threshold_hi;  }
 
-        rate_enforcer.apply(ig_md.afd.measured_rate,
+        rate_enforcer.apply(copied_rate,//ig_md.afd.measured_rate,
                            copied_t_lo,//ig_md.afd.threshold_lo,
                            copied_t_mid,//ig_md.afd.threshold,
                            copied_t_hi,//ig_md.afd.threshold_hi,
