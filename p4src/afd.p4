@@ -90,9 +90,9 @@ control SwitchIngress(
 	hdr.ethernet.src_addr=(bit<48>) ig_md.afd.measured_rate;
 
         // Get real drop flag and two simulated drop flags
-        bit<1> afd_drop_flag_lo = 0;
-        bit<1> afd_drop_flag_mid = 0;
-        bit<1> afd_drop_flag_hi = 0;
+        bit<1> udp_drop_flag_lo = 0;
+        bit<1> udp_drop_flag_mid = 0;
+        bit<1> udp_drop_flag_hi = 0;
         bit<1> tcp_drop_flag_mid = 0;
         bit<8> ecn_flag = 1;
 
@@ -115,9 +115,9 @@ control SwitchIngress(
                            tcp_isValid,
                            hdr.ipv4.total_len,
                            reg_index,
-                           afd_drop_flag_lo,
-                           afd_drop_flag_mid,
-                           afd_drop_flag_hi,
+                           udp_drop_flag_lo,
+                           udp_drop_flag_mid,
+                           udp_drop_flag_hi,
                            tcp_drop_flag_mid,
                            ecn_flag);
 
@@ -134,12 +134,12 @@ control SwitchIngress(
             }
             //TODO: output "rate>threshold_hi" separately from enforcer
             //TODO: flag_lo=mid, flag_hi=0, but if (rate>1.5T) flag_hi=flag_mid
-            afd_drop_flag_lo=tcp_drop_flag_mid;
-            afd_drop_flag_hi=0;
+            udp_drop_flag_lo=tcp_drop_flag_mid;
+            udp_drop_flag_hi=0;
         }else{//udp
             if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
                 ig_dprsr_md.drop_ctl = 0;
-            }else if(tcp_drop_flag_mid!=0){
+            }else if(udp_drop_flag_mid!=0){
                 ig_dprsr_md.drop_ctl = 1;
             }else{
                 ig_dprsr_md.drop_ctl = 0;
@@ -151,9 +151,9 @@ control SwitchIngress(
             // simulations to work around true dropping.
             byte_dumps.apply(ig_md.afd.vlink_id,
                              ig_md.afd.scaled_pkt_len,
-                             afd_drop_flag_lo,
+                             udp_drop_flag_lo,
                              ig_dprsr_md.drop_ctl[0:0],
-                             afd_drop_flag_hi,
+                             udp_drop_flag_hi,
                              ig_md.afd.bytes_sent_lo,
                              ig_md.afd.bytes_sent_hi,
                              ig_md.afd.bytes_sent_all);
