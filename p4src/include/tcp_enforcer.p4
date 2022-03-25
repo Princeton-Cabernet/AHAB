@@ -171,7 +171,5 @@ control TcpEnforcer(in byterate_t measured_rate,
         }else{
             drop_flag_hi=0;   
         }
-       
-	}
+    }
 }
-

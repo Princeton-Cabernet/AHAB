@@ -10,7 +10,7 @@
 
 #include "include/vlink_lookup.p4"
 #include "include/rate_estimator.p4"
-#include "include/tcp_enforcer.p4"
+#include "include/rate_enforcer.p4"
 #include "include/threshold_interpolator.p4"
 #include "include/max_rate_estimator.p4"
 #include "include/link_rate_tracker.p4"
@@ -34,8 +34,6 @@ Tofino-Approximate fair dropping:
 - Adjust threshold based upon LPF output, using EWMA recurrence from AFD paper
 */
 
-
-
 control SwitchIngress(
         inout header_t hdr,
         inout ig_metadata_t ig_md,
@@ -46,9 +44,11 @@ control SwitchIngress(
 
     VLinkLookup() vlink_lookup;
     RateEstimator() rate_estimator;
-    TcpEnforcer() tcp_enforcer;
+    RateEnforcer() rate_enforcer;
     ByteDumps() byte_dumps;
     WorkerGenerator() worker_generator;
+
+    Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_index;
 
     apply {
         epoch_t epoch = (epoch_t) ig_intr_md.ingress_mac_tstamp[47:20];//scale to 2^20ns ~= 1ms
@@ -64,7 +64,6 @@ control SwitchIngress(
             ig_md.sport = 0;
             ig_md.dport = 0;
         }
-            
 
         // If the packet is a recirculated update, it will not survive vlink_lookup.
         vlink_lookup.apply(hdr, ig_md.afd, ig_tm_md.ucast_egress_port, ig_dprsr_md.drop_ctl, ig_tm_md.bypass_egress);
@@ -92,65 +91,61 @@ control SwitchIngress(
 
         // Get real drop flag and two simulated drop flags
         bit<1> afd_drop_flag_lo = 0;
-// TODO: these annotations have no effect. Do we need to move these fields to metadata?
-@pa_no_overlay("ingress", "afd_drop_flag_mid")
         bit<1> afd_drop_flag_mid = 0;
         bit<1> afd_drop_flag_hi = 0;
-@pa_no_overlay("ingress", "ecn_flag")
-@pa_no_overlay("ingress", "ig_dprsr_md.drop_ctl")
+        bit<1> tcp_drop_flag_mid = 0;
         bit<8> ecn_flag = 1;
-        tcp_enforcer.apply(ig_md.afd.measured_rate,
+
+        bool tcp_isValid=hdr.tcp.isValid();
+        cms_index_t reg_index = hash_index.get({
+            hdr.ipv4.src_addr,hdr.ipv4.dst_addr,
+            hdr.tcp.src_port,hdr.tcp.dst_port});
+
+        bit<32> copied_t_lo;
+        bit<32> copied_t_mid;
+        bit<32> copied_t_hi;
+        @in_hash{ copied_t_lo=ig_md.afd.threshold_lo;  }
+        @in_hash{ copied_t_mid=ig_md.afd.threshold;  }
+        @in_hash{ copied_t_hi=ig_md.afd.threshold_hi;  }
+
+        rate_enforcer.apply(ig_md.afd.measured_rate,
+                           copied_t_lo,//ig_md.afd.threshold_lo,
+                           copied_t_mid,//ig_md.afd.threshold,
+                           copied_t_hi,//ig_md.afd.threshold_hi,
+                           tcp_isValid,
                            hdr.ipv4.total_len,
-                           ig_md.afd.threshold_lo,
-                           ig_md.afd.threshold,
-                           ig_md.afd.threshold_hi,
-                             hdr.ipv4.src_addr,
-                             hdr.ipv4.dst_addr,
-                             hdr.ipv4.protocol,
-                             ig_md.sport,
-                             ig_md.dport,
+                           reg_index,
                            afd_drop_flag_lo,
                            afd_drop_flag_mid,
                            afd_drop_flag_hi,
+                           tcp_drop_flag_mid,
                            ecn_flag);
-        if (afd_drop_flag_mid != 0) {
-            ig_dprsr_md.drop_ctl = 1;
-        }
-        if (ecn_flag != 0) {
-            if(hdr.ipv4.ecn != 0){
-                hdr.ipv4.ecn = 0b11;
-            }else{
+
+        if(tcp_isValid){
+            if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
+                ig_dprsr_md.drop_ctl = 0;
+            }else if(tcp_drop_flag_mid!=0){
                 ig_dprsr_md.drop_ctl = 1;
-            }    
+            }else if(hdr.ipv4.ecn != 0 && ecn_flag!=0){
+                hdr.ipv4.ecn = 0b11;
+                ig_dprsr_md.drop_ctl = 0;
+            }else if(ecn_flag!=0){
+                ig_dprsr_md.drop_ctl = 1;
+            }
+            //TODO: output "rate>threshold_hi" separately from enforcer
+            //TODO: flag_lo=mid, flag_hi=0, but if (rate>1.5T) flag_hi=flag_mid
+            afd_drop_flag_lo=tcp_drop_flag_mid;
+            afd_drop_flag_hi=0;
+        }else{//udp
+            if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
+                ig_dprsr_md.drop_ctl = 0;
+            }else if(tcp_drop_flag_mid!=0){
+                ig_dprsr_md.drop_ctl = 1;
+            }else{
+                ig_dprsr_md.drop_ctl = 0;
+            }
         }
-                            
-                           
-        /*
-        rate_enforcer.apply(ig_md.afd.measured_rate,
-                            ig_md.afd.threshold_lo,
-                            ig_md.afd.threshold,
-                            ig_md.afd.threshold_hi,
-                            afd_drop_flag_lo,
-                            afd_drop_flag_mid,
-                            afd_drop_flag_hi);
-
-        // || work_flag == 1 is defensive for debugging
-        if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
-	    // If congestion flag is false, dropping is disabled
-            afd_drop_flag_mid = 0;
-            ig_dprsr_md.drop_ctl = 0;
-        } else if (afd_drop_flag_hi == 1) {
-            // if drop_flag_hi, don't bother with ECN, just drop unconditionally
-            ig_dprsr_md.drop_ctl = 1;
-        } else if (hdr.tcp.isValid() && (hdr.ipv4.ecn != 0) && (afd_drop_flag_mid == 1)){
-            ig_dprsr_md.drop_ctl = 0;
-            hdr.ipv4.ecn = 0b11;
-        } else {
-            ig_dprsr_md.drop_ctl = (bit<3>) afd_drop_flag_mid;
-        }
-        */
-        
-
+         
         //always dump
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
             // simulations to work around true dropping.
