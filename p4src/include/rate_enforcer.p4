@@ -421,34 +421,47 @@ control RateEnforcer(in byterate_t measured_rate,
     }
 
     // ==== For TCP ====
-    byterate_t dthresh_lo_50;
-    byterate_t dthresh_hi_50;
+    byterate_t threshold_lo_tcp;
+    byterate_t threshold_mid_tcp;
+    byterate_t threshold_hi_tcp;
 
-    byterate_t threshold_mid_50p;
-    byterate_t threshold_mid_150p;
+    byterate_t dthresh_lo_tcp;
+    byterate_t dthresh_mid_tcp;
+    byterate_t dthresh_hi_tcp;
 
-    Register<bit<32>, bit<32> >(size=32) dummy_reg;
-    MathUnit<bit<32>>(MathOp_t.MUL, 24, 16) mul_then_div_150p;//1.5x: multiply 24, then divide 16
-    RegisterAction<bit<32>, bit<32>, bit<32>>(dummy_reg) get_thresmid_150p = {
+    Register<bit<32>, bit<32> >(size=32) dummy_reg_mid;
+    MathUnit<bit<32>>(MathOp_t.MUL, 18, 16) mathunit_mid;//1.125x: multiply 18, then divide 16
+    RegisterAction<bit<32>, bit<32>, bit<32>>(dummy_reg_mid) get_thresmid_mul_mid = {
         void apply(inout bit<32> val, out bit<32> ret) {
-            val = mul_then_div_150p.execute(  threshold_mid );
+            val = mathunit_mid.execute( threshold_mid );
+            ret = val;
+        }
+    };
+    Register<bit<32>, bit<32> >(size=32) dummy_reg_hi;
+    MathUnit<bit<32>>(MathOp_t.MUL, 28, 16) mathunit_hi;//1.75x: multiply 28, then divide 16
+    RegisterAction<bit<32>, bit<32>, bit<32>>(dummy_reg_hi) get_thresmid_mul_hi = {
+        void apply(inout bit<32> val, out bit<32> ret) {
+            val = mathunit_hi.execute( threshold_mid );
             ret = val;
         }
     };
 
     action tcp_calculate_dthres_step0(){
-        threshold_mid_50p = threshold_mid >> 1;
-        threshold_mid_150p = get_thresmid_150p.execute(0);
+        threshold_lo_tcp = threshold_mid >> 1;
+        threshold_mid_tcp = get_thresmid_mul_mid.execute(0);
+        threshold_hi_tcp = get_thresmid_mul_hi.execute(0);
     }
     action tcp_calculate_dthres_step1(){
-        dthresh_lo_50 = threshold_mid_50p - measured_rate;
-        dthresh_hi_50 = threshold_mid_150p - measured_rate;
+        dthresh_lo_tcp = threshold_lo_tcp - measured_rate;
+        dthresh_mid_tcp = threshold_mid_tcp - measured_rate;
+        dthresh_hi_tcp = threshold_hi_tcp - measured_rate;
     }
 
     bit<32> scaled_down_pktlen = (bit<32>) pkt_len; // input to the "count_til_*" registers
     bit<32> drop_reset_val = threshold_mid << 5; // T*32
     bit<32> ecn_reset_val = threshold_mid << 3; //T*8
 
+    bit<1> tcp_mid_exceeded_flag=0;
     action set_neither_exceeded() {
         scaled_down_pktlen=0;
     }
@@ -456,17 +469,18 @@ control RateEnforcer(in byterate_t measured_rate,
         scaled_down_pktlen = scaled_down_pktlen >> 2; // slow clear
     }
     action set_mid_exceeded() {
-        //do nothing. mid_exceeded_flag already set separately
+        tcp_mid_exceeded_flag=1;
     }
     action set_hi_exceeded() {
+        tcp_mid_exceeded_flag=1;
         drop_reset_val = 0;
         ecn_reset_val = 0;
     }
     table check_candidates_exceeded { 
         key = {
-            dthresh_lo_50  : ternary; // negative if threshold_lo exceeded
-            dthresh_mid : ternary; // negative if threshold_mid exceeded
-            dthresh_hi_50 : ternary; // negative if threshold_mid exceeded
+            dthresh_lo_tcp  : ternary; // negative if threshold_lo exceeded
+            dthresh_mid_tcp : ternary; // negative if threshold_mid exceeded
+            dthresh_hi_tcp : ternary; // negative if threshold_mid exceeded
         }
         actions = {
             set_neither_exceeded;
@@ -544,7 +558,7 @@ control RateEnforcer(in byterate_t measured_rate,
         tcp_calculate_dthres_step0();
         tcp_calculate_dthres_step1();
         check_candidates_exceeded.apply();
-        if(mid_exceeded_flag==1){
+        if(tcp_mid_exceeded_flag==1){
             tcp_drop_flag_mid= (bit<1>) countdown_drop.execute(reg_index);
             ecn_flag = countdown_ecn.execute(reg_index);
         }else{
