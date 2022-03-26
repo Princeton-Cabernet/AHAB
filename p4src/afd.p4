@@ -125,9 +125,10 @@ control SwitchIngress(
                            ecn_flag);
 
         if(tcp_isValid){
-            if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
-                ig_dprsr_md.drop_ctl = 0;
-            }else if(tcp_drop_flag_mid!=0){
+            //if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
+            //    ig_dprsr_md.drop_ctl = 0;
+            //}else 
+            if(tcp_drop_flag_mid!=0){
                 ig_dprsr_md.drop_ctl = 1;
             }else if(hdr.ipv4.ecn != 0 && ecn_flag!=0){
                 hdr.ipv4.ecn = 0b11;
