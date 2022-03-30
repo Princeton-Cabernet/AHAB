@@ -144,24 +144,24 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
 
             (36, 9001 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(36);
             (36, 0 &&& 0, 9001 &&& 0xffff) : set_vlink_noshift(36);
-            (36, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_rshift1(36);
-            (36, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_rshift1(36);
-            (36, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_rshift2(36);
-            (36, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_rshift2(36);
-            (36, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_rshift3(36);
-            (36, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_rshift3(36);
+            (36, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_lshift1(36);
+            (36, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_lshift1(36);
+            (36, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_lshift2(36);
+            (36, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_lshift2(36);
+            (36, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_lshift3(36);
+            (36, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_lshift3(36);
 
             (12, 8000 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(12+32);
             (12, 0 &&& 0, 8000 &&& 0xffff) : set_vlink_noshift(12+32);
 
             (12, 9001 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(12);
             (12, 0 &&& 0, 9001 &&& 0xffff) : set_vlink_noshift(12);
-            (12, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_rshift1(12);
-            (12, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_rshift1(12);
-            (12, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_rshift2(12);
-            (12, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_rshift2(12);
-            (12, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_rshift3(12);
-            (12, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_rshift3(12);
+            (12, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_lshift1(12);
+            (12, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_lshift1(12);
+            (12, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_lshift2(12);
+            (12, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_lshift2(12);
+            (12, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_lshift3(12);
+            (12, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_lshift3(12);
         }
     }
 
