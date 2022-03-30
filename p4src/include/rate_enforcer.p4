@@ -453,7 +453,7 @@ control RateEnforcer(in byterate_t measured_rate,
         scaled_down_pktlen=0;
     }
     action set_lo_exceeded() { 
-        scaled_down_pktlen = scaled_down_pktlen >> 2; // slow clear
+        scaled_down_pktlen = scaled_down_pktlen >> 3; // slow clear
     }
     action set_mid_exceeded() {
         //do nothing. mid_exceeded_flag already set separately
