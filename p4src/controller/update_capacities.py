@@ -2,7 +2,7 @@
 from __future__ import print_function
 import time
 import os, sys
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Union, Any
 import grpc
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
@@ -19,6 +19,47 @@ TODO: most-significant bits of vlink and vtrunk IDs should be physical pipeID.
 These bits should be added after reading and discarded before writing, and we should only have enough
 register cells per-pipe for the number of vlinks expected to be connected to a single pipe.
 """
+
+def parse_int(integer: Union[str, int, bytes, float]) -> int:
+    if type(integer) == str:
+        if integer.startswith("0x"):
+            return int(integer, base=16)
+        elif integer.startswith("0b"):
+            return int(integer, base=2)
+        return int(integer, base=10)
+    elif type(integer) in [bytes, bytearray]:
+        return int.from_bytes(integer, "big")
+    return int(integer)
+
+
+class TernaryKey:
+    value: int
+    mask: int
+    def __init__(self, key: Union[str, Tuple[int, int], Tuple[bytes, bytes]]):
+        if type(key) is str:
+            amp_count = key.count("&")
+            if amp_count > 3 or amp_count < 1:
+                raise Exception("Ternary keys should be provided as 'value&mask' or 'value&&&mask'")
+            self.value, self.mask = key.split("&" * amp_count)
+            self.value = parse_int(self.value)
+            self.mask = parse_int(self.mask)
+        elif type(key) is tuple:
+            assert(len(key) == 2)
+            self.value = parse_int(key[0])
+            self.mask = parse_int(key[1])
+
+    def __str__(self):
+        return "{} &&& {}".format(self.value, self.mask)
+
+    def doesnt_care(self) -> bool:
+        return self.mask == 0
+
+    def is_blank(self) -> bool:
+        return self.mask == 0 and self.value == 0
+
+
+
+
 
 # base stations per UPF
 NUM_VTRUNKS = 32
@@ -62,8 +103,12 @@ parser.add_argument('-o', '--once', action='store_true',   help="Only perform on
 parser.add_argument('--verbose', '-v', action='count', default=0)
 parser.add_argument('-f', '--fixed', type=int, default=0, 
                     help="Fixed capacity which, if provided, will be installed instead of the max-min fairness capacity.")
-parser.add_argument('-m', '--max', type=int, default=6450*10,
+parser.add_argument('-c', '--capacity', type=int, default=6450*10,
                     help="Default fixed capacity per VLink Group (AKA VTrunk), to be fairly shared within the group")
+parser.add_argument('-C', '--clear', action='store_true',
+                    help="If a match key is provided, this flag will determine if the table is cleared before installing the new rule")
+parser.add_argument('-m', '--match', type=TernaryKey, default=TernaryKey("0&0"),
+                    help="If installing a fixed capacity with -f, this ternary match key which vlink IDs will be matched")
 args=parser.parse_args()
 
 
@@ -137,7 +182,7 @@ def write_vtrunk_thresholds(vtrunk_thresholds : List[int], modify: bool) -> None
     key_list = list()
     data_list = list()
     for vtrunk_id, vtrunk_threshold in enumerate(vtrunk_thresholds):
-        priority = 1  # arbitrary for now
+        priority = 0  # arbitrary for now
         match_val, match_mask = vtrunk_id_to_value_mask_match_pair(vtrunk_id)
         key_list.append(table.make_key([gc.KeyTuple('$MATCH_PRIORITY', priority),
                                         gc.KeyTuple("eg_md.afd.vlink_id", match_val, match_mask)]))
@@ -152,15 +197,42 @@ def write_vtrunk_thresholds(vtrunk_thresholds : List[int], modify: bool) -> None
     else:
         print("Wrote {} vtrunk thresholds".format(len(key_list)))
 
+
+def write_vtrunk_threshold_ternary(match_key: TernaryKey, threshold: int) -> None:
+    """ Write a fixed vtrunk threshold to the dataplane for the given ternary match key.
+    """
+    table = bfrt_info.table_dict["capacity_lookup"]
+
+    priority = 1  # arbitrary for now
+    key = table.make_key([gc.KeyTuple('$MATCH_PRIORITY', priority),
+                                    gc.KeyTuple("eg_md.afd.vlink_id", match_key.value, match_key.mask)])
+    data = table.make_data([gc.DataTuple("vlink_capacity", threshold)],
+                                      "load_vlink_capacity")
+    try:
+        table.entry_add(target, [key], [data])
+        print("Wrote fixed capacity {} for vlink IDs matching {}.".format(threshold, match_key))
+    except Exception as e:
+        if "Already exists" in str(e.errors[0][1]):
+            table.entry_mod(target, [key], [data])
+            print("Changed capacity for vlink IDs matching {} to {}.".format(match_key, threshold))
+        else:
+            raise e
+
+
 def clear_table(table_name: str):
+    print("Clearing table {}".format(table_name))
     table = bfrt_info.table_dict[table_name]
     table.entry_del(target, [])
 
 
 def main():
-    clear_table("capacity_lookup")
+    if args.clear or args.match.is_blank():
+        clear_table("capacity_lookup")
 
     if args.fixed > 0:
+        if not args.match.is_blank():
+            write_vtrunk_threshold_ternary(args.match, args.fixed)
+            return
         print("Writing fixed vlink capacities")
         write_vtrunk_thresholds([args.fixed] * NUM_VTRUNKS, modify=False)
         print("Done writing fixed vlink capacities")
