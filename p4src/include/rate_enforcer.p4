@@ -428,7 +428,7 @@ control RateEnforcer(in byterate_t measured_rate,
     byterate_t threshold_mid_150p;
 
     Register<bit<32>, bit<32> >(size=32) dummy_reg;
-    MathUnit<bit<32>>(MathOp_t.MUL, 24, 16) mul_then_div_150p;//1.5x: multiply 24, then divide 16
+    MathUnit<bit<32>>(MathOp_t.MUL, 29, 16) mul_then_div_150p;//1.5x: multiply 24, then divide 16
     RegisterAction<bit<32>, bit<32>, bit<32>>(dummy_reg) get_thresmid_150p = {
         void apply(inout bit<32> val, out bit<32> ret) {
             val = mul_then_div_150p.execute(  threshold_mid );
@@ -453,7 +453,7 @@ control RateEnforcer(in byterate_t measured_rate,
         scaled_down_pktlen=0;
     }
     action set_lo_exceeded() { 
-        scaled_down_pktlen = scaled_down_pktlen >> 2; // slow clear
+        scaled_down_pktlen = scaled_down_pktlen >> 3; // slow clear
     }
     action set_mid_exceeded() {
         //do nothing. mid_exceeded_flag already set separately
