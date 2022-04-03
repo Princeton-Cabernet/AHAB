@@ -121,11 +121,11 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
 	}
 	table tb_match_ip{
         key = {
-            hdr.ipv4.dst_addr[8:0]: exact;
-            hdr.tcp.isValid() : exact;
-            hdr.udp.isValid() : exact;
-            hdr.tcp.dst_port: ternary;
-            hdr.udp.dst_port: ternary;
+            hdr.ipv4.dst_addr: lpm          @name("dst_addr");
+            hdr.tcp.isValid() : exact       @name("tcp_valid");
+            hdr.udp.isValid() : exact       @name("udp_valid");
+            hdr.tcp.dst_port: ternary       @name("tcp_dport");
+            hdr.udp.dst_port: ternary       @name("udp_dport");
             
         }
         actions = {
@@ -140,31 +140,6 @@ control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
         }
         default_action = set_vlink_default();
         size = 1024;
-        const entries = {
-            (36, true, false, 8000 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(36+32);
-            (36, false, true, 0 &&& 0, 8000 &&& 0xffff) : set_vlink_noshift(36+32);
-
-            (36, true, false, 9001 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(36);
-            (36, false, true, 0 &&& 0, 9001 &&& 0xffff) : set_vlink_noshift(36);
-            (36, true, false, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_lshift1(36);
-            (36, false, true, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_lshift1(36);
-            (36, true, false, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_lshift2(36);
-            (36, false, true, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_lshift2(36);
-            (36, true, false, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_lshift3(36);
-            (36, false, true, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_lshift3(36);
-
-            (12, true, false, 8000 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(12+32);
-            (12, false, true, 0 &&& 0, 8000 &&& 0xffff) : set_vlink_noshift(12+32);
-
-            (12, true, false, 9001 &&& 0xffff, 0 &&& 0) : set_vlink_noshift(12);
-            (12, false, true, 0 &&& 0, 9001 &&& 0xffff) : set_vlink_noshift(12);
-            (12, true, false, 9002 &&& 0xffff, 0 &&& 0) : set_vlink_lshift1(12);
-            (12, false, true, 0 &&& 0, 9002 &&& 0xffff) : set_vlink_lshift1(12);
-            (12, true, false, 9003 &&& 0xffff, 0 &&& 0) : set_vlink_lshift2(12);
-            (12, false, true, 0 &&& 0, 9003 &&& 0xffff) : set_vlink_lshift2(12);
-            (12, true, false, 9004 &&& 0xffff, 0 &&& 0) : set_vlink_lshift3(12);
-            (12, false, true, 0 &&& 0, 9004 &&& 0xffff) : set_vlink_lshift3(12);
-        }
     }
 
 
