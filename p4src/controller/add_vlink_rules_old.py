@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 import grpc
+import ipaddress
 import bfrt_grpc.bfruntime_pb2 as bfruntime_pb2
 import bfrt_grpc.client as gc
 
 import argparse
 parser = argparse.ArgumentParser(description='Add LPF rules via GRPC')
 parser.add_argument('-m','--mode', type=str, choices=('RATE','SAMPLE'),help='LPF mode', default='RATE')
-# 1e6 is 1ms. 1e8 is 100ms
-parser.add_argument('-d','--decay', type=float, default=1e6, 
-        help='Decay time constant in nanoseconds. Default is 1e6 ns (1 millisecond).')
-# 
+parser.add_argument('-d','--decay', type=float, help='Decay time constant', default=1e6)
 parser.add_argument('-s','--scale', type=int, help='Scale down factor', default=1)
-parser.add_argument('-n', '--name', type=str, help="Name substring to search", default = "lpf")
 args=parser.parse_args()
 
 # Connect to BF Runtime Server
@@ -32,7 +29,45 @@ target = gc.Target(device_id=0, pipe_id=0xffff)
 # First, enumerate all table names
 table_names=bfrt_info.table_dict.keys()
 
-relevant_table_names=[n for n in table_names if args.name.lower() in n.lower() and 'lpf' in n.lower()]
+
+#============ Begin edits ============#
+
+
+vlink_lookup_table = bfrt_info.table_dict['SwitchIngress.vlink_lookup.tb_match_ip']
+vlink_act_namef = "SwitchIngress.vlink_lookup.set_vlink_%sshift"
+vtrunk_lookup_table = bfrt_info.table_dict['SwitchEgress.vtrunk_lookup']
+
+def get_vlink_action_name(lshiftnum):
+    if shiftnum == 0:
+        return vlink_act_namef % "no"
+    elif shiftnum > 0:
+        return (vlink_act_namef % "l") + str(shiftnum)
+    else:
+        return (vlink_act_namef % "r") + str(-shiftnum)
+
+def make_vlink_key(ipv4_prefix):
+    prefix = ipaddress.ip_network(unicode(ipv4_prefix))
+    
+    return vlink_lookup_table.make_key([
+            gc.KeyTuple('hdr.ipv4.dst_addr', str(prefix.network_address), prefix_len=prefix.prefixlen)])
+
+
+def add_vlink_entry(vlink_id, ipv4_prefix, weight_pow):
+    key = make_vlink_key(ipv4_prefix)
+
+    data = vlink_lookup_table.make_data([gc.DataTuple('', vlink_id], get_vlink_action_name(weight_pow))
+
+    vlink_lookup_table.entry_add(
+        target, 
+        [key], 
+        [data]) 
+
+
+#============ End edits ============#
+
+
+
+relevant_table_names=[n for n in table_names if 'LPF' in n or 'lpf' in n]
 relevant_tables=[]
 for n in sorted(relevant_table_names):
     t=bfrt_info.table_dict[n]

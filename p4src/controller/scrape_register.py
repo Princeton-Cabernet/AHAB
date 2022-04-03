@@ -11,9 +11,9 @@ from typing import List, Tuple, Dict
 import argparse
 parser = argparse.ArgumentParser(description='Add mirror session to switch')
 parser.add_argument('-p','--pipe', type=int, help='Pipe to scrape. -1 to scrape all.', default=-1)
-parser.add_argument('-r','--rate', type=float, help='Scraping period in seconds.', default=1)
-parser.add_argument('-i','--start-index', type=int, help='First index to scrape', default=0)
-parser.add_argument('-j','--end-index', type=int, help='Last index to scrape', default=5)
+parser.add_argument('-r','--rate', type=float, help='Scraping period in seconds.', default=0.1)
+parser.add_argument('-i','--start-index', type=int, help='First index to scrape', default=36)
+parser.add_argument('-j','--end-index', type=int, help='Last index to scrape', default=36)
 parser.add_argument('-n','--register_name',type=str, help="Unique suffix of the name of the register to scrape", 
                         default="stored_thresholds")
 args=parser.parse_args()

@@ -10,9 +10,9 @@ import bfrt_grpc.client as gc
 
 import argparse
 parser = argparse.ArgumentParser(description='Add delta table rules via GRPC')
-parser.add_argument('-i', '--low', type=int, default=10,
+parser.add_argument('-i', '--low', type=int, default=6,
                     help='Log_2 of the lowest valid threshold, rounded down.')
-parser.add_argument('-j', '--high', type=int, default=20,
+parser.add_argument('-j', '--high', type=int, default=30,
                     help='Log_2 of the highest valid threshold, rounded down.')
 parser.add_argument('-d', '--delta', type=int, default=1,
                     help="-Log_2 of the threshold delta's relative size. 1 corresponds to a delta of 1/2, 2 a delta of 1/4, etc.")
