@@ -154,7 +154,7 @@ control SwitchIngress(
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
             // simulations to work around true dropping.
             byte_dumps.apply(ig_md.afd.vlink_id,
-                             ig_md.afd.scaled_pkt_len,
+                             (bit<32>) hdr.ipv4.total_len,
                              udp_drop_flag_lo,
                              ig_dprsr_md.drop_ctl[0:0],
                              udp_drop_flag_hi,
@@ -300,7 +300,7 @@ control SwitchEgress(
         if (eg_md.afd.is_worker == 0) {
             capacity_lookup.apply();
             link_rate_tracker.apply(eg_md.afd.vlink_id, 
-                                    eg_md.afd.scaled_pkt_len, 
+                                    (bit<32>) hdr.ipv4.total_len, 
                                     eg_md.afd.bytes_sent_all,
                                     eg_md.afd.bytes_sent_lo, 
                                     eg_md.afd.bytes_sent_hi,
