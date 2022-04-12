@@ -232,9 +232,10 @@ def compute_vtrunk_thresholds(vlink_demands: List[int], vtrunk_capacity: int ) -
                 print_nonzeroes(local_vlink_demands)
                 print("max vtrunk bandwidth is {}. Current vtrunk usage is {}.".format(vtrunk_capacity, sum(local_vlink_demands)))
         computed_threshold = correct_threshold(local_vlink_demands, vtrunk_capacity)
-        if computed_threshold == vtrunk_capacity:
+        if computed_threshold == vtrunk_capacity:  # If the threshold is trivial
+            spare_capacity = vtrunk_capacity - sum(local_vlink_demands)
             largest_demand = max(local_vlink_demands)
-            computed_threshold = int(largest_demand * args.growth_factor)
+            computed_threshold = largest_demand + spare_capacity
         if computed_threshold == vtrunk_capacity:
             trivial_count += 1
         vtrunk_thresholds[vtrunk_id] = computed_threshold
