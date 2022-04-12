@@ -58,21 +58,61 @@ class TernaryKey:
         return self.mask == 0 and self.value == 0
 
 
+import argparse
+parser = argparse.ArgumentParser(description='Add mirror session to switch', 
+                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+parser.add_argument('-r', '--rate', type=float, default=1, help='Update period in seconds.')
+parser.add_argument('-o', '--once', action='store_true',   help="Only perform one update. Otherwise, update indefinitely")
+parser.add_argument('--verbose', '-v', action='count', default=0)
+parser.add_argument('-f', '--fixed', type=int, default=0, required=False,
+                    help="Fixed capacity which, if provided, will be installed instead of the max-min fairness capacity.")
+parser.add_argument('-c', '--capacity', type=int, default=6450*10,
+                    help="Default fixed capacity per VLink Group (AKA VTrunk), to be fairly shared within the group")
+parser.add_argument('-C', '--clear', action='store_true',
+                    help="If a match key is provided, this flag will determine if the table is cleared before installing the new rule")
+parser.add_argument('-m', '--match', type=TernaryKey, default=TernaryKey("0&0"),
+                    help="If installing a fixed capacity with -f, this ternary match key which vlink IDs will be matched")
+parser.add_argument('-b', '--vlink-bits', type=int, default=10, required=False,
+                    help = "Number of lower bits that correspond to the local vlink ID. Upper bits will be vtrunk ID")
+parser.add_argument('-O', '--optimize-reads', type=str, default="", required=False,
+                    help = "A string of comma-separated integers which, if provided, will be the only vlink rate register cell indices read. All others will be assumed zero.")
+parser.add_argument('-s', '--smoothing', type=float, default=0.0, required=False,
+                    help="Weight (in [0, 1)] to give prior slice capacities when updating, for smoothing out changes")
+parser.add_argument('-g', '--growth-factor', type=float, default=1.2, required=False)
+args=parser.parse_args()
+
+assert(0 <= args.smoothing < 1)
 
 
-
-# base stations per UPF
-NUM_VTRUNKS = 32
+# this should at most the size of each vlink resource in the p4 program (e.g. the number of rate trackers)
+NUM_VLINKS = 4096
 # log_2(slices per base-station)
-VLINK_BITS = 6
+VLINK_BITS = args.vlink_bits
+if (1 << args.vlink_bits) > NUM_VLINKS:
+    VLINK_BITS = (NUM_VLINKS-1).bit_length()
+    print("WARNING: Vlink IDs only have %d bits. Reducing `--vlink-bits` to %d" % (VLINK_BITS, VLINK_BITS))
 # slices per base station
-VLINKS_PER_VTRUNK = 2 ** VLINK_BITS
-# number of vlinks across all base stations
-NUM_VLINKS = NUM_VTRUNKS * VLINKS_PER_VTRUNK
+VLINKS_PER_VTRUNK = 1 << VLINK_BITS
+# log_2(base stations per upf)
+NUM_VTRUNK_BITS = (NUM_VLINKS - 1).bit_length() - VLINK_BITS
+# base stations per upf. Should be at most the size of vtrunk (aka vlink groups) resources in the p4 program
+NUM_VTRUNKS = 1 << NUM_VTRUNK_BITS
 # All (slice, base station) integer identifiers
 ALL_VLINK_IDS = [_ for _ in range(NUM_VLINKS)]
 
 VTRUNK_MASK = ((1 << (NUM_VTRUNKS.bit_length() - 1)) - 1) << VLINK_BITS
+
+def print_nonzeroes(items):
+    zeroes = 0
+    parts = []
+    for i, item in enumerate(items):
+        if item != 0:
+            parts.append("{}:{}".format(i,item))
+        else:
+            zeroes += 1
+    print("{} zeroes. Nonzeros:".format(zeroes), end="")
+    print("[{}]".format(",".join(parts)))
+
 
 
 def vlink_id_to_vtrunk_id(vlink_id : int) -> int:
@@ -95,22 +135,6 @@ def vtrunk_id_to_value_mask_match_pair(vtrunk_id : int) -> Tuple[int, int]:
     return (vtrunk_id << VLINK_BITS, VTRUNK_MASK)
 
 
-import argparse
-parser = argparse.ArgumentParser(description='Add mirror session to switch', 
-                                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument('-r', '--rate', type=float, default=1, help='Update period in seconds.')
-parser.add_argument('-o', '--once', action='store_true',   help="Only perform one update. Otherwise, update indefinitely")
-parser.add_argument('--verbose', '-v', action='count', default=0)
-parser.add_argument('-f', '--fixed', type=int, default=0, 
-                    help="Fixed capacity which, if provided, will be installed instead of the max-min fairness capacity.")
-parser.add_argument('-c', '--capacity', type=int, default=6450*10,
-                    help="Default fixed capacity per VLink Group (AKA VTrunk), to be fairly shared within the group")
-parser.add_argument('-C', '--clear', action='store_true',
-                    help="If a match key is provided, this flag will determine if the table is cleared before installing the new rule")
-parser.add_argument('-m', '--match', type=TernaryKey, default=TernaryKey("0&0"),
-                    help="If installing a fixed capacity with -f, this ternary match key which vlink IDs will be matched")
-args=parser.parse_args()
-
 
 # Connect to BF Runtime Server
 interface = gc.ClientInterface(grpc_addr = "localhost:50052", client_id = 0, device_id = 0)
@@ -122,20 +146,64 @@ interface.bind_pipeline_config(bfrt_info.p4_name_get())
 target = gc.Target(device_id=0, pipe_id=0xffff)
 
 
+def make_key_list_for_read():
+    demand_register = bfrt_info.table_dict["stored_vlink_demands"]
+    register_data_name = list(demand_register.info.data_dict.keys())[0]
+    return_key_list = list()
+    return_data_list = list()
+    vlink_ids_of_interest = ALL_VLINK_IDS
+    if args.optimize_reads != "":
+        vlink_ids_of_interest = [int(x) for x in args.optimize_reads.split(",")]
+    for i in vlink_ids_of_interest:
+        return_key_list.append(demand_register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)]))
+        return_data_list.append(demand_register.make_data([gc.DataTuple(register_data_name, 0)]))
+    return return_key_list, return_data_list
+
+
+key_list_for_read, data_list_for_clear = make_key_list_for_read()
+demands_read = [0] * NUM_VLINKS
+
+
+def clear_vlink_demands():
+    global key_list_for_read
+    global data_list_for_clear
+    demand_register = bfrt_info.table_dict["stored_vlink_demands"]
+    demand_register.entry_add(target, key_list_for_read, data_list_for_clear)
+    if args.verbose > 0:
+        print("Cleared {} demand register cells".format(len(key_list_for_read)))
+
+
+
+_previous_read_demands = None
+def smooth_demands(new_demands):
+    global _previous_read_demands
+    if args.smoothing == 0:
+        return new_demands
+    if _previous_read_demands is None:
+        _previous_read_demands = new_demands
+        return new_demands
+    old_weight = args.smoothing
+    new_weight = 1 - old_weight
+    new_demands = [int((old_weight * old_demand) + (new_weight * new_demand))
+            for old_demand, new_demand in zip(_previous_read_demands, new_demands)]
+    _previous_read_demands = new_demands
+    if args.verbose > 1:
+        print("Read demands smoothed to ", end = "")
+        print_nonzeroes(new_demands)
+    return new_demands
+
+
 def get_vlink_demands() -> List[int]:
     """ Scrape per-vlink demand registers 
     """
+    global key_list_for_read
+    global demands_read
 
     demand_register = bfrt_info.table_dict["stored_vlink_demands"]
     data_name = list(demand_register.info.data_dict.keys())[0]
 
-
-    key_list = list()
-    for i in ALL_VLINK_IDS:
-        key_list.append(demand_register.make_key([gc.KeyTuple(u'$REGISTER_INDEX', i)]))
-
-    demands_read = [0] * NUM_VLINKS
-    response = demand_register.entry_get(target, key_list, {"from_hw": True})
+    response = demand_register.entry_get(target, key_list_for_read, {"from_hw": True})
+    clear_vlink_demands()
     count = 0
     for data, key in response:
         vlink_id = list(key.to_dict().values())[0]['value']
@@ -145,10 +213,9 @@ def get_vlink_demands() -> List[int]:
     if args.verbose == 1:
         print("Scraped {} of {} vlink demands.".format(count, NUM_VLINKS))
     elif args.verbose > 1:
-        nonzero_values = ["{}:{}".format(i, demand) for i, demand in enumerate(demands_read) if demand != 0]
-        zero_count = count - len(nonzero_values)
-        print("Scraped {} of {} vlink_demands. {} zero values. Nonzero values:".format(count, NUM_VLINKS, zero_count))
-        print(', '.join(nonzero_values))
+        print("Scraped {} of {} vlink_demands: ".format(count, NUM_VLINKS), end=" ")
+        print_nonzeroes(demands_read)
+    demands_read = smooth_demands(demands_read)
     return demands_read
 
 
@@ -159,17 +226,22 @@ def compute_vtrunk_thresholds(vlink_demands: List[int], vtrunk_capacity: int ) -
     trivial_count = 0
     for vtrunk_id in range(NUM_VTRUNKS):
         local_vlink_demands = [vlink_demands[vlink_id] for vlink_id in vtrunk_id_to_vlink_ids(vtrunk_id)]
-        if (sum(local_vlink_demands) != 0):
-            print("vtrunk {} has local vlink demands {}".format(vtrunk_id, local_vlink_demands))
-            print("max vtrunk bandwidth is {}. Current vtrunk usage is {}.".format(vtrunk_capacity, sum(local_vlink_demands)))
+        if args.verbose > 0:
+            if (sum(local_vlink_demands) != 0):
+                print("vtrunk {} local demands:".format(vtrunk_id), end="")
+                print_nonzeroes(local_vlink_demands)
+                print("max vtrunk bandwidth is {}. Current vtrunk usage is {}.".format(vtrunk_capacity, sum(local_vlink_demands)))
         computed_threshold = correct_threshold(local_vlink_demands, vtrunk_capacity)
+        if computed_threshold == vtrunk_capacity:
+            largest_demand = max(local_vlink_demands)
+            computed_threshold = int(largest_demand * args.growth_factor)
         if computed_threshold == vtrunk_capacity:
             trivial_count += 1
         vtrunk_thresholds[vtrunk_id] = computed_threshold
     if args.verbose > 0:
         print("Computed {} vtrunk thresholds. {} were trivial".format(len(vtrunk_thresholds), trivial_count))
     if args.verbose > 1:
-        print("Nontrivial thresholds: {}".format(
+        print("Nontrivial thresholds: [{}]".format(
             ", ".join(["{}:{}".format(i,thresh) for i, thresh in enumerate(vtrunk_thresholds) if thresh != vtrunk_capacity])))
     return vtrunk_thresholds
 
@@ -194,6 +266,7 @@ def write_vtrunk_thresholds(vtrunk_thresholds : List[int], modify: bool) -> None
         table.entry_add(target, key_list, data_list)
     if args.verbose == 0:
         print(". ", end="")
+        sys.stdout.flush()
     else:
         print("Wrote {} vtrunk thresholds".format(len(key_list)))
 
@@ -220,9 +293,12 @@ def write_vtrunk_threshold_ternary(match_key: TernaryKey, threshold: int) -> Non
 
 
 def clear_table(table_name: str):
-    print("Clearing table {}".format(table_name))
+    if args.verbose > 0:
+        print("Clearing table {}".format(table_name))
     table = bfrt_info.table_dict[table_name]
     table.entry_del(target, [])
+
+
 
 
 def main():
@@ -241,7 +317,7 @@ def main():
     first_iter = True
     while True:
         vlink_demands = get_vlink_demands()
-        vtrunk_thresholds = compute_vtrunk_thresholds(vlink_demands, args.max)
+        vtrunk_thresholds = compute_vtrunk_thresholds(vlink_demands, args.capacity)
         write_vtrunk_thresholds(vtrunk_thresholds, modify=not first_iter)
         if args.once:
             break
