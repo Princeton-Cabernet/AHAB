@@ -55,7 +55,7 @@ def binary_search_for_input(desired_output: int, input_lo: int, input_hi: int,
 
 
 
-def loose_threshold(true_flow_sizes: List[int], link_capacity: int) -> int:
+def speculative_threshold(true_flow_sizes: List[int], link_capacity: int) -> int:
     """ A threshold that gives the largest flow space to grow to fill the link
     """
     sum_of_sizes = sum(true_flow_sizes)
@@ -64,13 +64,16 @@ def loose_threshold(true_flow_sizes: List[int], link_capacity: int) -> int:
     return largest_flow_size + spare_capacity
 
 
-def correct_threshold(true_flow_sizes: List[int], link_capacity: int) -> int:
+def correct_threshold(true_flow_sizes: List[int], link_capacity: int, default_to_speculative=True) -> int:
     """ If the link is busy, return the max-min fairness threshold.
-        Otherwise, return the loose threshold.
+        Otherwise, return the speculative threshold (if default_to_speculative).
     """
     sum_of_sizes = sum(true_flow_sizes)
     if sum_of_sizes < link_capacity:
-        return loose_threshold(true_flow_sizes, link_capacity)
+        if default_to_speculative:
+            return speculative_threshold(true_flow_sizes, link_capacity)
+        else:
+            return link_capacity
 
     def bytes_sent_if_threshold_was(candidate_threshold: int) -> int:
         return sum(min(flow_size, candidate_threshold) for flow_size in true_flow_sizes)
