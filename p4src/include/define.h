@@ -8,7 +8,7 @@
 #define byterate_t_width 32
 #define NUM_VLINKS 4096
 #define NUM_VLINK_GROUPS 256
-#define CMS_HEIGHT 1024
+#define CMS_HEIGHT 4096
 #define DEFAULT_VLINK_CAPACITY 6450
 // capacity 8192 -> 125Mbps
 
