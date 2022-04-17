@@ -116,7 +116,7 @@ control SwitchIngress(
                            copied_t_mid,//ig_md.afd.threshold,
                            copied_t_hi,//ig_md.afd.threshold_hi,
                            tcp_isValid,
-                           hdr.ipv4.total_len,
+                           ig_md.afd.scaled_pkt_len,
                            reg_index,
                            udp_drop_flag_lo,
                            udp_drop_flag_mid,
