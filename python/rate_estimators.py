@@ -21,7 +21,7 @@ def compute_rate_lpf(prev_lpf_val: np.uint64, curr_sample: np.uint64,
     exponent = -(curr_timestamp - prev_timestamp) / time_constant
     if curr_timestamp < prev_timestamp:
         raise Exception("LPF inputs cannot age backwards")
-    return np.uint64(curr_sample + prev_lpf_val * math.pow(math.e, exponent))
+    return curr_sample + prev_lpf_val * np.power(np.e, exponent)
 
 
 """
