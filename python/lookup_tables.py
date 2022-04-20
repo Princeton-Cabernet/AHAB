@@ -2,6 +2,7 @@ from typing import List, Callable, Dict, Tuple, Union
 
 import math
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 class ApproxMultiplicationTable:
@@ -49,7 +50,8 @@ class ApproxDivisionTable:
     """
     table_entries: Dict[Tuple[int, int], Tuple[int, int]]
     num_significant_bits: int
-    MIN_LOOKUP_ENTRY = 2 ** -16  # lookup entries smaller than this will be rounded down to 0
+    MIN_LOOKUP_OUTPUT = 2 ** -16  # lookup entries smaller than this will be rounded down to 0
+    min_denominator: int
 
     def __init__(self, num_significant_bits: int, unbiasing: float = 0.5, lookup_value_mantissa_bits: int = 8):
         """
@@ -62,14 +64,15 @@ class ApproxDivisionTable:
         self.num_significant_bits = num_significant_bits
         self.table_entries = {}
         # populate the lookup table
-        for i in range(1 << num_significant_bits):
-            for j in range(1 << num_significant_bits):
+        self.min_denominator = 1 << (num_significant_bits - 1)
+        for j in range(1 << (num_significant_bits - 1), 1 << num_significant_bits):
+            for i in range(1, j + 1):
                 # i and j will be rounded versions of more precise numbers.
                 # To unbias the rounding error, we offset i and j slightly before dividing them
                 value = (i + unbiasing) / (j + unbiasing)
                 exp: int
                 mantissa: int
-                if value < self.MIN_LOOKUP_ENTRY:
+                if value < self.MIN_LOOKUP_OUTPUT:
                     exp = 0
                     mantissa = 0
                 else:
@@ -80,10 +83,19 @@ class ApproxDivisionTable:
     def compute(self, a: int, b: int) -> float:
         assert a > 0 and b > 0
 
+        # inputs are too small, scale them up
+        if b < self.min_denominator:
+            b_bits = b.bit_length()
+            lshift = self.num_significant_bits - b_bits
+            b = b << lshift
+            a = a << lshift
+
         exponent: int = max(a.bit_length(), b.bit_length())
         rshift: int = exponent - self.num_significant_bits
         i = a >> rshift
         j = b >> rshift
+        if i == 0:
+            return self.MIN_LOOKUP_OUTPUT
 
         mantissa, exponent = self.table_entries[(i, j)]
 
@@ -105,8 +117,11 @@ def plot_relative_error(a_vals: List[int], b_vals: List[int],
     for b in b_vals:
         errors = []
         for a in a_vals:
-            approx_result = lookup.compute(a, b)
             true_result = true_func(a, b)
+            if a > b:
+                approx_result = true_result
+            else:
+                approx_result = lookup.compute(a, b)
             error = (approx_result - true_result) / true_result
             errors.append(error)
 
@@ -116,13 +131,35 @@ def plot_relative_error(a_vals: List[int], b_vals: List[int],
     plt.show()
 
 
+def sweep_division_inputs(lowest_bitcount=5, highest_bitcount=7, highest_input=100000):
+    for bitcount in range(lowest_bitcount, highest_bitcount + 1):
+        for unbiasing in [0.0, 0.5]:
+            div_lookup = ApproxDivisionTable(num_significant_bits=bitcount, unbiasing=unbiasing)
+            errors = []
+            step_size = highest_input // 10
+            higherest_input = highest_input + step_size
+            for denominator in range(1, higherest_input, step_size):
+                for numerator in range(1, denominator + 1):
+                    approx_result = div_lookup.compute(numerator, denominator)
+                    true_result = numerator / denominator
+                    relative_error = abs((approx_result - true_result) / true_result)
+                    #if relative_error == 1:
+                    #    print(numerator, denominator)
+                    errors.append(relative_error)
+            mean_error = np.mean(errors)
+            del errors
+            print("Input bitwidth: {}, Unbiasing: {}, Mean error: {}, Num Entries: {}".format(
+                bitcount, unbiasing, mean_error, len(div_lookup.table_entries)))
+
+
 def main():
     a_vals = [i for i in range(100000, 500000)]
     b_vals = [j for j in range(100000, 500000, 100000)]
     mult_lookup = ApproxMultiplicationTable(num_significant_bits=7)
-    div_loookup = ApproxDivisionTable(num_significant_bits=7)
-    plot_relative_error(a_vals, b_vals, lambda a, b: a * b, mult_lookup)
-    plot_relative_error(a_vals, b_vals, lambda a, b: a / b, div_loookup)
+    div_loookup = ApproxDivisionTable(num_significant_bits=6)
+    # plot_relative_error(a_vals, b_vals, lambda a, b: a * b, mult_lookup)
+    # plot_relative_error(a_vals, b_vals, lambda a, b: a / b, div_loookup)
+    sweep_division_inputs()
 
 
 if __name__ == "__main__":

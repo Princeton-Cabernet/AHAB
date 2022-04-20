@@ -2,18 +2,17 @@
 import random
 from collections import defaultdict
 from dataclasses import dataclass
-
-from typing import List, Tuple, Optional, Dict, Set, Type
-from heavy_hitters import HeavyHitterSketch, ExactHeavyHitters, CountMinSketch
-from estimators import ThresholdEstimator, ThresholdHistograms, \
-    ThresholdNewtonMethodTofino, CapacityHistograms, correct_threshold, CapacityEstimator, CapacityFixed
-import numpy as np
 from statistics import mean
+from typing import List, Tuple, Dict, Set, Type
 
-SEED = 0x123456
+import numpy as np
+
+from common import FlowId, SEED, bytes_rejected
+from estimators import ThresholdEstimator, ThresholdNewtonMethodTofino, CapacityHistograms, correct_threshold, \
+    CapacityEstimator, CapacityFixed
+from rate_estimators import RateEstimator
+
 random.seed(SEED)  # for reproducible tests
-
-FlowId = Tuple[int, ...]
 
 
 @dataclass
@@ -108,71 +107,69 @@ class QosHistory:
 
 class ApproxQos:
     num_slices: int
+
     slice_weights: List[float]
+    scale_factors: List[int]  # one factor per slice, used to scale packets up/down to appear heavier/lighter
 
-    scale_factors: List[int]
-
-    flow_size_sketch: HeavyHitterSketch
-    true_flow_sizes: Dict[FlowId, int]
-    threshold_estimators: List[ThresholdEstimator]
-    capacity_estimator: CapacityEstimator
-
-    dropped_bytes_per_flow: Dict[FlowId, int]
+    flow_rate_estimator: RateEstimator  # returns a point estimate of each flow's current rate
+    threshold_estimators: List[ThresholdEstimator]  # one estimator per slice. Determines intra-slice fair rate
+    capacity_estimator: CapacityEstimator  # determines each slice's capacity, according to inter-slice max-min fairness
 
     def __init__(self, slice_weights: List[float],
-                 base_station_capacity: int,
-                 hh_instance: Optional[HeavyHitterSketch] = None,
+                 vtrunk_capacity: int,
+                 rate_estimator: RateEstimator,
                  threshold_estimator_class: Type[ThresholdEstimator] = ThresholdNewtonMethodTofino,
                  fixed_capacities: bool = False):
         self.num_slices = len(slice_weights)
         self.slice_weights = slice_weights.copy()
 
-        if hh_instance is None:
-            # Create a CMS sketch instance
-            self.flow_size_sketch = CountMinSketch()
-        else:
-            # Allowing the passing of an existing HH sketch instance lets us share a sketch across ApproxQos instances,
-            # which are currently per-base-station.
-            self.flow_size_sketch = hh_instance
+        self.flow_rate_estimator = rate_estimator
 
         self.threshold_estimators = [threshold_estimator_class() for _ in range(self.num_slices)]
         if fixed_capacities:
-            self.capacity_estimator = CapacityFixed(self.slice_weights, base_station_capacity)
+            self.capacity_estimator = CapacityFixed(self.slice_weights, vtrunk_capacity)
         else:
-            self.capacity_estimator = CapacityHistograms(self.slice_weights, base_station_capacity)
+            self.capacity_estimator = CapacityHistograms(self.slice_weights, vtrunk_capacity)
         for slice_id, estimator in enumerate(self.threshold_estimators):
-            # Initial threshold for each slice is capacity divided by 4. Its arbitrary
+            # Choose an arbitrary initial threshold for each slice
             estimator.set_threshold(int(self.capacity_estimator.capacity_for(slice_id) / 6))
 
         heaviest_weight = max(self.slice_weights)
         # there is no rounding error here if every weight is a power of 2, as will be the case in tofino
         self.scale_factors = [int(heaviest_weight / weight) for weight in self.slice_weights]
-
-        self.dropped_bytes_per_flow = defaultdict(int)
         self.__post_init__()
 
     def __post_init__(self):
         pass
 
-    def process_packet(self, packet_size: int, slice_id: int, packet_key: FlowId) -> bool:
+    def process_packet(self, packet_timestamp: int, packet_size: int, slice_id: int, packet_key: FlowId) -> int:
+        # Scale the packet's size up before putting into the flow rate sketch
         scale_factor = self.scale_factors[slice_id]
         scaled_size = packet_size * scale_factor
-        estimated_flow_size = int(self.flow_size_sketch.add_after_return(packet_key, scaled_size) / scale_factor)
+        # Put the scaled-up packet size into the flow rate sketch to retrieve a flow rate estimate
+        estimated_flow_size = self.flow_rate_estimator.update(key=packet_key,
+                                                              timestamp=packet_timestamp,
+                                                              value=scaled_size)
+        # Scale the sketch output down to get the true estimated flow rate
+        estimated_flow_size = int(estimated_flow_size / scale_factor)
+
+        # Grab the current threshold for the packet's slice
         threshold = self.threshold_estimators[slice_id].get_current_threshold()
-        drop: bool = estimated_flow_size > threshold
-        if drop:
-            self.dropped_bytes_per_flow[packet_key] += packet_size
+        # to reduce experiment variance, just grab expected drop outcomes
+        expected_dropped_bytes = bytes_rejected(estimated_flow_size, threshold, packet_size)
 
-        self.threshold_estimators[slice_id].process_packet(packet_size, estimated_flow_size)
-        self.capacity_estimator.process_packet(slice_id=slice_id, pkt_size=packet_size)
+        # Pass the packet to the threshold and capacity estimator structures
+        self.threshold_estimators[slice_id].process_packet(packet_size, estimated_flow_size, packet_timestamp)
+        self.capacity_estimator.process_packet(slice_id=slice_id, pkt_size=packet_size, timestamp=packet_timestamp)
 
-        return drop
+        return expected_dropped_bytes
 
     def end_epoch(self) -> None:
+        # Compute new per-slice capacity
         self.capacity_estimator.end_epoch()
+        # Compute each slice's new per-flow threshold
         for slice_id, estimator in enumerate(self.threshold_estimators):
             estimator.end_epoch(self.capacity_estimator.capacity_for(slice_id))
-        self.flow_size_sketch.clear()
 
 
 class ApproxQosWithSavedStats(ApproxQos):
@@ -193,19 +190,21 @@ class ApproxQosWithSavedStats(ApproxQos):
         self.received_bytes_per_flow_this_epoch = defaultdict(int)
         self.slice_to_flows = defaultdict(set)
 
-    def process_packet(self, packet_size: int, slice_id: int, packet_key: FlowId) -> bool:
-        drop = super().process_packet(packet_size, slice_id, packet_key)
+    def process_packet(self, packet_timestamp: int, packet_size: int, slice_id: int, packet_key: FlowId) -> int:
+        expected_dropped_bytes = super().process_packet(packet_timestamp,
+                                                        packet_size,
+                                                        slice_id,
+                                                        packet_key)
 
         self.received_bytes_per_flow_this_epoch[packet_key] += packet_size
-        if drop:
-            self.dropped_bytes_per_flow_this_epoch[packet_key] += packet_size
+        self.dropped_bytes_per_flow_this_epoch[packet_key] += expected_dropped_bytes
         self.slice_to_flows[slice_id].add(packet_key)
 
-        return drop
+        return expected_dropped_bytes
 
     def end_epoch(self) -> None:
         # Save the thresholds and capacities from this epoch
-        chosen_thresholds = [estimator.get_current_threshold() for estimator in self.threshold_estimators]
+        thresholds_chosen = [estimator.get_current_threshold() for estimator in self.threshold_estimators]
         capacities_chosen = self.capacity_estimator.capacities()
 
         # update capacities and thresholds
@@ -221,7 +220,7 @@ class ApproxQosWithSavedStats(ApproxQos):
                                                              for flow_id in flow_ids],
                                                  flow_drops=[self.dropped_bytes_per_flow_this_epoch[flow_id]
                                                              for flow_id in flow_ids],
-                                                 threshold_chosen=chosen_thresholds[slice_id],
+                                                 threshold_chosen=thresholds_chosen[slice_id],
                                                  capacity_chosen=capacities_chosen[slice_id],
                                                  capacity_ideal=capacity_in_hindsight))
         self.history.add_epoch(epoch_record)
@@ -246,22 +245,23 @@ class PerfectQos:
     def __init__(self, slice_weights: List[float], base_station_capacity: int):
         self.total_capacity = base_station_capacity
         self.slice_weights = slice_weights
-        self.clear_per_window_structs()
+        self.clear_per_epoch_structs()
         self.capacity_estimator = CapacityHistograms(self.slice_weights, base_station_capacity)
 
-    def clear_per_window_structs(self):
+    def clear_per_epoch_structs(self):
         self.bytes_per_flow = defaultdict(int)
         self.slice_to_flows = defaultdict(set)
 
-    def process_packet(self, packet_key: FlowId, packet_size: int, slice_id: int):
+    def process_packet(self, packet_key: FlowId, packet_size: int, slice_id: int, timestamp: int):
         self.bytes_per_flow[packet_key] += packet_size
         self.slice_to_flows[slice_id].add(packet_key)
-        self.capacity_estimator.process_packet(slice_id=slice_id, pkt_size=packet_size)
+        self.capacity_estimator.process_packet(slice_id=slice_id, pkt_size=packet_size, timestamp=timestamp)
 
-    def end_epoch(self):
+    def end_epoch(self, epoch_duration):
         self.capacity_estimator.end_epoch()
         for slice_id in range(self.num_slices):
             slice_capacity = self.capacity_estimator.capacity_for(slice_id)
-            threshold = correct_threshold(list(self.bytes_per_flow.values()), slice_capacity)
+            rate_per_flow = [int(flow_bytes / epoch_duration) for flow_bytes in self.bytes_per_flow.values()]
+            threshold = correct_threshold(rate_per_flow, slice_capacity)
             for flow_id in self.slice_to_flows[slice_id]:
                 self.dropped_bytes_per_flow[flow_id] += max(self.bytes_per_flow[flow_id] - threshold, 0)

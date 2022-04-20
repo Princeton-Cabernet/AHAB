@@ -11,8 +11,9 @@ from heavy_hitters import ExactHeavyHitters, CountSketch, CountMinSketch, HeavyH
 
 from plots import plot_thresholds, plot_threshold_error, plot_slice_loads, plot_slice_flow_counts, \
     plot_history_fairness, plot_drop_rate_scatter
+from rate_estimators import RateEstimator, LpfMinSketch
 
-SEED = 0x12345678
+from common import SEED, LPF_SCALE, LPF_DECAY
 
 """
 have X light streams and Y heavy streams
@@ -50,18 +51,20 @@ def experiment_unstable_slice_demands(num_epochs: int,
                                       max_change_per_epoch: float,
                                       subscription_factor: float,
                                       max_variance: float,
-                                      sketch_class: Type[HeavyHitterSketch],
-                                      fixed_capacities: bool):
+                                      sketch_class: Type[RateEstimator],
+                                      fixed_capacities: bool,
+                                      packet_spacing: int):
     zipf_exponent = 1.2
     rng = np.random.default_rng(SEED)
     qos = ApproxQosWithSavedStats(slice_weights=slice_weights,
-                                  base_station_capacity=capacity,
-                                  hh_instance=sketch_class(),
+                                  vtrunk_capacity=capacity,
+                                  rate_estimator=sketch_class(),
                                   fixed_capacities=fixed_capacities)
 
     initial_slice_loads = [int(weight * capacity * subscription_factor) for weight in slice_weights]
     curr_slice_loads = [load for load in initial_slice_loads]
 
+    current_time = 0
     for epoch in range(num_epochs):
         print("Epoch", epoch)
         if max_change_per_epoch != 0.0:
@@ -76,8 +79,10 @@ def experiment_unstable_slice_demands(num_epochs: int,
                          for pkt_id in rng.zipf(a=zipf_exponent, size=slice_bytes)])
         random.shuffle(pkts)
 
-        for pkt in pkts:
-            qos.process_packet(packet_size=1, packet_key=pkt, slice_id=pkt[0])
+        for i, pkt in enumerate(pkts):
+            qos.process_packet(packet_size=1000, packet_key=pkt, slice_id=pkt[0],
+                               packet_timestamp=packet_spacing*current_time)
+            current_time += 1
         qos.end_epoch()
 
     history = qos.get_history()
@@ -101,11 +106,12 @@ def experiment_unstable_slice_demands(num_epochs: int,
 
 
 if __name__ == "__main__":
-    experiment_unstable_slice_demands(num_epochs=20,
+    experiment_unstable_slice_demands(num_epochs=10,
                                       slice_weights=[0.5, 0.25, 0.125, 0.125],
                                       capacity=100000,
                                       subscription_factor=1.2,
                                       max_change_per_epoch=0.02,
                                       max_variance=0.2,
-                                      sketch_class=CountMinSketch,
-                                      fixed_capacities=False)
+                                      sketch_class=LpfMinSketch,
+                                      fixed_capacities=False,
+                                      packet_spacing=1)
