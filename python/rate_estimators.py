@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections import defaultdict
 from collections import deque as Queue
 from statistics import mean
-from typing import List, Callable, Tuple, Dict, Optional
+from typing import List, Callable, Tuple, Dict, Optional, Collection
 
 import math
 import numpy as np
@@ -15,41 +15,37 @@ from hashing import make_crc16_func, CRC16_DEFAULT_POLY
 from heavy_hitters import CountMinSketch
 
 
-def compute_sample_lpf(prev_lpf_val: int, curr_sample: int,
-                       prev_timestamp: int, curr_timestamp: int, time_constant: int) -> int:
-    """ Based upon tofino LPF sample mode documentation """
-    exponent = -(float(curr_timestamp) - float(prev_timestamp)) / time_constant
-    return int(prev_lpf_val + (curr_sample - prev_lpf_val) * (1 - math.pow(math.e, exponent)))
-
-
-def compute_rate_lpf(prev_lpf_val: float, curr_sample: float,
-                     prev_timestamp: float, curr_timestamp: float, time_constant: float) -> float:
+def compute_rate_lpf(prev_lpf_val: np.uint64, curr_sample: np.uint64,
+                     prev_timestamp: np.uint64, curr_timestamp: np.uint64, time_constant: np.uint64) -> np.uint64:
     """ Based upon tofino LPF rate mode documentation """
     exponent = -(curr_timestamp - prev_timestamp) / time_constant
     try:
-        return curr_sample + prev_lpf_val * math.pow(math.e, exponent)
+        return np.uint64(curr_sample + prev_lpf_val * math.pow(math.e, exponent))
     except OverflowError as e:
         print(curr_timestamp, prev_timestamp, time_constant, exponent)
         raise e
 
 
+"""
 class FlowHistory(defaultdict):
     def __missing__(self, key) -> Tuple[int, Queue[Tuple[int, int]]]:
         new_val: Tuple[int, Queue[Tuple[int, int]]] = (key, Queue())
         self[key] = new_val
         return new_val
+"""
 
 
 class RateEstimator(ABC):
     @abstractmethod
-    def update(self, key: FlowId, timestamp: float, value: float) -> float:
+    def update(self, key: FlowId, timestamp: np.uint64, value: np.uint64) -> np.uint64:
         return NotImplemented
 
     @abstractmethod
-    def get(self, key: FlowId) -> float:
+    def get(self, key: FlowId) -> np.uint64:
         return NotImplemented
 
 
+"""
 class SlidingWindowRateEstimator(RateEstimator):
     per_flow_history = Dict[FlowId, Tuple[int, Queue[Tuple[int, int]]]]
     window_duration: int
@@ -77,88 +73,99 @@ class SlidingWindowRateEstimator(RateEstimator):
     def get(self, key: FlowId) -> int:
         flow_size, _ = self.per_flow_history[key]
         return flow_size
+"""
 
 
 class LpfSingleton:
     # Each LPF cell consists of two values: the timestamp of the last sample, and the current LPF value
-    last_timestamp: float
-    last_value: float
-    time_constant: float
+    last_timestamp: np.uint64
+    last_value: np.uint64
+    time_constant: np.uint64
     scale_down_factor: int
 
-    def __init__(self, time_constant: float, scale_down_factor: int = 0):
-        self.last_timestamp = 0
-        self.last_value = 0
+    def __init__(self, time_constant: np.uint64, scale_down_factor: int = 0):
+        self.last_timestamp = np.uint64(0)
+        self.last_value = np.uint64(0)
         self.time_constant = time_constant
         self.scale_down_factor = scale_down_factor
 
-    def update(self, timestamp: float, value: float) -> float:
+    def update(self, timestamp: np.uint64, value: np.uint64) -> np.uint64:
         new_val = compute_rate_lpf(self.last_value, value, self.last_timestamp, timestamp, self.time_constant)
         self.last_timestamp = timestamp
         self.last_value = new_val
         return new_val / (2 ** self.scale_down_factor)
 
-    def get(self) -> float:
+    def get(self) -> np.uint64:
         return self.last_value / (2 ** self.scale_down_factor)
 
     def clear(self) -> None:
-        self.last_value = 0
-        self.last_timestamp = 0
+        self.last_value = np.uint64(0)
+        self.last_timestamp = np.uint64(0)
 
 
 class LpfExactRegister(RateEstimator):
     # Each LPF cell consists of two values: the timestamp of the last sample, and the current LPF value
-    timestamps: Dict[FlowId, float]
-    values: Dict[FlowId, float]
-    time_constant: float
-    scale_down_factor: int
+    timestamps: Dict[FlowId, np.uint64]
+    values: Dict[FlowId, np.uint64]
+    time_constant: np.uint64
+    scale_down_factor: np.uint64
 
-    def __init__(self, time_constant: float, scale: int = 0):
-        self.timestamps = defaultdict(int)
-        self.values = defaultdict(int)
+    def __init__(self, time_constant: np.uint64, scale: int = 0):
+        self.timestamps = defaultdict(np.uint64)
+        self.values = defaultdict(np.uint64)
         self.time_constant = time_constant
-        self.scale_down_factor = scale
+        self.scale_down_factor = np.uint64(scale)
 
-    def update(self, key: FlowId, timestamp: float, value: float) -> float:
+    def update(self, key: FlowId, timestamp: np.uint64, value: np.uint64) -> np.uint64:
         new_val = compute_rate_lpf(self.values[key], value, self.timestamps[key], timestamp, self.time_constant)
         self.timestamps[key] = timestamp
         self.values[key] = new_val
-        return new_val / (2 ** self.scale_down_factor)
+        try:
+            return new_val >> self.scale_down_factor
+        except TypeError as e:
+            print(type(new_val))
+            print(type(self.scale_down_factor))
+            raise e
 
-    def get(self, key: FlowId) -> float:
-        return self.values[key] / (2 ** self.scale_down_factor)
+    def get(self, key: FlowId) -> np.uint64:
+        return self.values[key] >> self.scale_down_factor
 
 
 class LpfHashedRegister(RateEstimator):
     # Each LPF cell consists of two values: the timestamp of the last sample, and the current LPF value
-    timestamps: List[float]
-    values: List[float]
+    timestamps = None
+    values = None
     hash_func: Callable[..., int]
     height: int
-    time_constant: float
-    scale_down_factor: int
+    time_constant: np.uint64
+    scale_down_factor: np.uint64
 
-    def __init__(self, time_constant: float, height: int,
+    def __init__(self, time_constant: np.uint64, height: int,
                  hash_func: Callable[..., int], scale: int = 0):
-        self.timestamps = [0] * height
-        self.values = [0] * height
+        self.timestamps = np.zeros(height)
+        self.values = np.zeros(height)
         self.hash_func = hash_func
         self.height = height
         self.time_constant = time_constant
-        self.scale_down_factor = scale
+        self.scale_down_factor = np.uint64(scale)
 
     def __index_of(self, key: FlowId) -> int:
         return self.hash_func(*key) % self.height
 
-    def update(self, key: FlowId, timestamp: float, value: float) -> float:
+    def update(self, key: FlowId, timestamp: np.uint64, value: np.uint64) -> np.uint64:
         index = self.__index_of(key)
         new_val = compute_rate_lpf(self.values[index], value, self.timestamps[index], timestamp, self.time_constant)
         self.timestamps[index] = timestamp
         self.values[index] = new_val
-        return new_val / (2 ** self.scale_down_factor)
+        try:
+            return new_val >> self.scale_down_factor
+        except TypeError as e:
+            print(type(new_val))
+            print(type(self.scale_down_factor))
+            raise e
 
     def get(self, key: FlowId) -> int:
-        return self.values[self.__index_of(key)] / (2 ** self.scale_down_factor)
+        return self.values[self.__index_of(key)] >> self.scale_down_factor
 
 
 class LpfMinSketch(RateEstimator):
@@ -169,7 +176,7 @@ class LpfMinSketch(RateEstimator):
     height: int
     registers: List[RateEstimator]
 
-    def __init__(self, time_constant: float = LPF_DECAY, scale: int = LPF_SCALE,
+    def __init__(self, time_constant: np.uint64 = LPF_DECAY, scale: int = LPF_SCALE,
                  width: int = 3, height: int = 2048):
         self.width = width
         self.height = height
@@ -180,23 +187,23 @@ class LpfMinSketch(RateEstimator):
                                             hash_func=hash_func,
                                             scale=scale) for hash_func in hash_funcs]
 
-    def update(self, key: FlowId, timestamp: float, value: float) -> float:
+    def update(self, key: FlowId, timestamp: np.uint64, value: np.uint64) -> np.uint64:
         return min(reg.update(key, timestamp, value) for reg in self.registers)
 
-    def get(self, key: FlowId) -> float:
+    def get(self, key: FlowId) -> np.uint64:
         return min(reg.get(key) for reg in self.registers)
 
 
 def plot_lpf_rate_convergence():
     # over how many nanoseconds do we want an average
-    time_constant = 16000  # 16 ms
-    pkt_size = 100  # 100 bytes
+    time_constant = np.uint64(16000)  # 16 ms
+    pkt_size = np.uint64(100)  # 100 bytes
     pkt_count = 100
     lpf = LpfExactRegister(time_constant)
 
     # one packet every ms for half the experiment, then one every 2ms for the second half
     # byterate should be 100 bytes per ms and then 50 bytes per ms
-    timestamps = [1000 * (i + max(0, i - (pkt_count // 2))) for i in range(pkt_count)]
+    timestamps = np.asarray([1000 * (i + max(0, i - (pkt_count // 2))) for i in range(pkt_count)], dtype=np.uint64)
 
     lpf_outputs = []
     for timestamp in timestamps:
@@ -209,14 +216,14 @@ def plot_lpf_rate_convergence():
 
 def plot_lms_rate_convergence():
     # over how many nanoseconds do we want an average
-    time_constant = 16000  # 16 ms
-    pkt_size = 100  # 100 bytes
+    time_constant = np.uint64(16000)  # 16 ms
+    pkt_size = np.uint64(100)  # 100 bytes
     pkt_count = 100
     lpf = LpfExactRegister(time_constant)
 
     # one packet every ms for half the experiment, then one every 2ms for the second half
     # byterate should be 100 bytes per ms and then 50 bytes per ms
-    timestamps = [1000 * (i + max(0, i - (pkt_count // 2))) for i in range(pkt_count)]
+    timestamps = np.asarray([1000 * (i + max(0, i - (pkt_count // 2))) for i in range(pkt_count)], dtype=np.uint64)
 
     lpf_outputs = []
     for timestamp in timestamps:
@@ -248,11 +255,11 @@ def get_epoched_cms_approx_pairs(packets: List[Packet],
 
 
 def get_approx_pairs(packets: List[Packet],
-                     lms_width: int, lms_height: int, time_constant: float) -> List[Tuple[float, float]]:
+                     lms_width: int, lms_height: int, time_constant: np.uint64) -> List[Tuple[np.uint64, np.uint64]]:
     lms = LpfMinSketch(time_constant=time_constant, width=lms_width, height=lms_height)
     lpf = LpfExactRegister(time_constant=time_constant)
 
-    result_pairs: List[Tuple[float, float]] = []
+    result_pairs: List[Tuple[np.uint64, np.uint64]] = []
     for packet in packets:
         lpf_val = lpf.update(packet.flow_id, packet.timestamp, packet.size)
         lms_val = lms.update(packet.flow_id, packet.timestamp, packet.size)
@@ -262,18 +269,18 @@ def get_approx_pairs(packets: List[Packet],
 
 
 def get_approx_pairs_averaged(packets: List[Packet],
-                              lms_width: int, lms_height: int, time_constant: float) -> List[Tuple[float, float]]:
+                              lms_width: int, lms_height: int, time_constant: np.uint64) -> List[Tuple[np.uint64, np.uint64]]:
     lms = LpfMinSketch(time_constant=time_constant, width=lms_width, height=lms_height)
     lpf = LpfExactRegister(time_constant=time_constant)
 
-    results: Dict[FlowId, List[Tuple[float, float]]] = defaultdict(list)
+    results: Dict[FlowId, List[Tuple[np.uint64, np.uint64]]] = defaultdict(list)
 
     for packet in packets:
         lpf_val = lpf.update(packet.flow_id, packet.timestamp, packet.size)
         lms_val = lms.update(packet.flow_id, packet.timestamp, packet.size)
         results[packet.flow_id].append((lpf_val, lms_val))
 
-    result_pairs: List[Tuple[float, float]] = []
+    result_pairs: List[Tuple[np.uint64, np.uint64]] = []
     for flow_id, pair_list in results.items():
         lpf_avg = mean([x for x, y in pair_list])
         lms_avg = mean([y for x, y in pair_list])
@@ -282,7 +289,7 @@ def get_approx_pairs_averaged(packets: List[Packet],
     return result_pairs
 
 
-def plot_approx_pairs(pairs: List[Tuple[float, float]], title: str, ax: Optional[Axes] = None):
+def plot_approx_pairs(pairs: List[Tuple[np.uint64, np.uint64]], title: str, ax: Optional[Axes] = None):
     x_vals = [x for x, y in pairs]
     y_vals = [y for x, y in pairs]
 
