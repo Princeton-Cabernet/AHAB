@@ -19,11 +19,9 @@ def compute_rate_lpf(prev_lpf_val: np.uint64, curr_sample: np.uint64,
                      prev_timestamp: np.uint64, curr_timestamp: np.uint64, time_constant: np.uint64) -> np.uint64:
     """ Based upon tofino LPF rate mode documentation """
     exponent = -(curr_timestamp - prev_timestamp) / time_constant
-    try:
-        return np.uint64(curr_sample + prev_lpf_val * math.pow(math.e, exponent))
-    except OverflowError as e:
-        print(curr_timestamp, prev_timestamp, time_constant, exponent)
-        raise e
+    if curr_timestamp < prev_timestamp:
+        raise Exception("LPF inputs cannot age backwards")
+    return np.uint64(curr_sample + prev_lpf_val * math.pow(math.e, exponent))
 
 
 """
@@ -120,12 +118,7 @@ class LpfExactRegister(RateEstimator):
         new_val = compute_rate_lpf(self.values[key], value, self.timestamps[key], timestamp, self.time_constant)
         self.timestamps[key] = timestamp
         self.values[key] = new_val
-        try:
-            return new_val >> self.scale_down_factor
-        except TypeError as e:
-            print(type(new_val))
-            print(type(self.scale_down_factor))
-            raise e
+        return new_val >> self.scale_down_factor
 
     def get(self, key: FlowId) -> np.uint64:
         return self.values[key] >> self.scale_down_factor
@@ -157,12 +150,7 @@ class LpfHashedRegister(RateEstimator):
         new_val = compute_rate_lpf(self.values[index], value, self.timestamps[index], timestamp, self.time_constant)
         self.timestamps[index] = timestamp
         self.values[index] = new_val
-        try:
-            return new_val >> self.scale_down_factor
-        except TypeError as e:
-            print(type(new_val))
-            print(type(self.scale_down_factor))
-            raise e
+        return new_val >> self.scale_down_factor
 
     def get(self, key: FlowId) -> int:
         return self.values[self.__index_of(key)] >> self.scale_down_factor
