@@ -1,6 +1,11 @@
-#pragma once
-//== Parsers and Deparsers
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
 
+//== Parsers and Deparsers
 parser TofinoIngressParser(
         packet_in pkt,
         inout ig_metadata_t ig_md,

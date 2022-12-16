@@ -1,4 +1,10 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
+
 #include "define.h"
 
 // Accurately track real and hypothetical link rate, count non-dropped packets

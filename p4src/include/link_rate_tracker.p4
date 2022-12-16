@@ -1,4 +1,9 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
 
 // Track bandwidth demand and actual sending rate per vlink.
 // Also track hypothetical sending rate for hi/lo threshold.

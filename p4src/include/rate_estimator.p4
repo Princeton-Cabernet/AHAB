@@ -1,4 +1,9 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
 
 // Estimate per-flow rate using 3-row CMS-LPF estimator
 control RateEstimator(in bit<32> src_ip,

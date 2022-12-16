@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+"AHAB project. © Robert MacDavid, Xiaoqi Chen, Princeton University. License: AGPLv3"
+
 from __future__ import print_function
 
 import sys

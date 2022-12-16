@@ -1,4 +1,9 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
 
 // Lookup table from dstIP to vlink; also reads the vlink's capacity and routing egress port
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,

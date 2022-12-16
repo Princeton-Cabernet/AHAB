@@ -1,3 +1,10 @@
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
+
 // For each vlink, generate one worker per epoch
 control WorkerGenerator(in epoch_t curr_epoch,
                          in vlink_index_t vlink_id,

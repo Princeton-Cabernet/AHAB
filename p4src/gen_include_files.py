@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+"AHAB project. © Robert MacDavid, Xiaoqi Chen, Princeton University. License: AGPLv3"
+
 import math
 import os
 from typing import Tuple

@@ -1,4 +1,9 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
 
 // Saves and loads per-vlink state, including congestion flag and interpolated threshold for next epoch
 control UpdateStorage(in bit<1> is_worker,

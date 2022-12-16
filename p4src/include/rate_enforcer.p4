@@ -1,4 +1,10 @@
-// Approx UPF. Copyright (c) Princeton University, all rights reserved
+/*
+    AHAB project
+    Copyright (c) 2022, Robert MacDavid, Xiaoqi Chen, Princeton University.
+    macdavid [at] cs.princeton.edu
+    License: AGPLv3
+*/
+
 #include "define.h"
 
 #define DROP_PROB_LOOKUP_TBL_SIZE 2048
