@@ -1,45 +1,46 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
-
-
-control UpdateStorage(in vlink_index_t vlink_id,
-                        in byterate_t vlink_demand,
-                        in byterate_t vlink_capacity,
-                        in byterate_t max_rate,
-                        inout byterate_t new_threshold,
-                        in bit<1> is_worker,
-                        out bit<8> congestion_flag) {
+control UpdateStorage(in bit<1> is_worker,
+    inout header_t hdr,
+    in byterate_t vlink_capacity, in byterate_t vlink_demand,
+    in vlink_index_t vlink_id, in byterate_t new_threshold) {
     // Loads and saves congestion flags and freshly interpolated thresholds
 
+    byterate_t capacity_minus_demand = vlink_capacity - vlink_demand;
 
-    @hidden
-    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) winning_thresholds;
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) grab_new_threshold_regact = {
+    Register<byterate_t, vlink_index_t>(size=NUM_VLINKS) egr_reg_thresholds;
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) grab_new_threshold_regact = {
         void apply(inout byterate_t stored, out byterate_t retval) {
+            stored = stored;
             retval = stored;
         }
     };
-    RegisterAction<byterate_t, vlink_index_t, byterate_t>(winning_thresholds) dump_new_threshold_regact = {
-        void apply(inout byterate_t stored) {
+    RegisterAction<byterate_t, vlink_index_t, byterate_t>(egr_reg_thresholds) dump_new_threshold_regact = {
+        void apply(inout byterate_t stored, out byterate_t retval) {
             stored = new_threshold;
+            retval = stored;
         }
     };
-    @hidden
     action grab_new_threshold() {
-        new_threshold = grab_new_threshold_regact.execute(vlink_id);
+        hdr.afd_update.new_threshold = grab_new_threshold_regact.execute(vlink_id);
+        // Finish setting the recirculation headers
+        hdr.fake_ethernet.ether_type = ETHERTYPE_THRESHOLD_UPDATE;
+        hdr.afd_update.vlink_id = vlink_id;
     }
-    @hidden
     action dump_new_threshold() {
         dump_new_threshold_regact.execute(vlink_id);
+        // Recirculation headers aren't needed, erase them
+        hdr.fake_ethernet.setInvalid();
+        hdr.afd_update.setInvalid();
     }
-    @hidden
-    table dump_or_grab_new_threshold {
+
+    table read_or_write_new_threshold {
         key = {
             is_worker : exact;
         }
         actions = {
-            dump_new_threshold;
             grab_new_threshold;
+            dump_new_threshold;
         }
         const entries = {
             0 : dump_new_threshold();
@@ -48,68 +49,63 @@ control UpdateStorage(in vlink_index_t vlink_id,
         size = 2;
     }
 
-    byterate_t demand_delta; 
-    @hidden
-    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) congestion_flags;
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) set_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
-	    stored_flag = 1;
+    Register<bit<8>, vlink_index_t>(size=NUM_VLINKS) egr_reg_flags;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) set_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+        stored_flag = 1;
+        returned_flag = 1;
         }
     };
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) unset_congestion_flag_regact = {
-        void apply(inout bit<8> stored_flag) {
-	    stored_flag = 0;
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) unset_congestion_flag_regact = {
+        void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
+        stored_flag = 0;
+        returned_flag = 0;
         }
     };
-    RegisterAction<bit<8>, vlink_index_t, bit<8>>(congestion_flags) grab_congestion_flag_regact = {
+    RegisterAction<bit<8>, vlink_index_t, bit<8>>(egr_reg_flags) grab_congestion_flag_regact = {
         void apply(inout bit<8> stored_flag, out bit<8> returned_flag) {
             returned_flag = stored_flag;
         }
     };
-    @hidden
     action set_congestion_flag() {
         set_congestion_flag_regact.execute(vlink_id);
     }
-    @hidden
     action unset_congestion_flag() {
-        unset_congestion_flag_regact.execute(vlink_id);
+       unset_congestion_flag_regact.execute(vlink_id);
     }
-    @hidden
     action grab_congestion_flag() {
-        congestion_flag = grab_congestion_flag_regact.execute(vlink_id);
+        hdr.afd_update.congestion_flag = (bit<1>) grab_congestion_flag_regact.execute(vlink_id);
     }
+    action nop_(){}
+
+
 #define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
 #define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
 #define TERNARY_DONT_CARE 32w0 &&& 32w0
-    @hidden
-    table dump_or_grab_congestion_flag {
+
+    table read_or_write_congestion_flag {
         key = {
             is_worker : exact;
-            demand_delta : ternary;
+            capacity_minus_demand : ternary;
         }
         actions = {
+            grab_congestion_flag;
             set_congestion_flag;
             unset_congestion_flag;
-            grab_congestion_flag;
+            nop_();
         }
         const entries = {
+            (1, TERNARY_DONT_CARE) : grab_congestion_flag();
             (0, TERNARY_NEG_CHECK) : set_congestion_flag();
             (0, TERNARY_POS_CHECK) : unset_congestion_flag();
-            (1, TERNARY_DONT_CARE) : grab_congestion_flag();
+            (0, TERNARY_ZERO_CHECK) : unset_congestion_flag();
         }
-        size = 3;
+        size = 8;
+        default_action = nop_();  // Something went wrong, stick with the current fair rate threshold
     }
 
-
     apply {
-        demand_delta = vlink_capacity - vlink_demand; 
-        // If the highest rate seen recently is lower than the new threshold, lower the threshold to that rate
-        // This prevents the threshold from jumping to infinity during times of underutilization,
-        // which improves convergence rate.
-        // TODO: should we smooth this out?
-        //new_threshold = min<byterate_t>(new_threshold, max_rate);
-        // If normal packet, save the new threshold. If a worker packet, load the new one
-        dump_or_grab_new_threshold.apply();
-        dump_or_grab_congestion_flag.apply();
+        read_or_write_new_threshold.apply();
+        read_or_write_congestion_flag.apply();
     }
 }
