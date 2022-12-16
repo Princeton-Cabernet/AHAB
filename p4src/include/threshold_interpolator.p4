@@ -1,10 +1,13 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
 @hidden
-enum bit<2> InterpolationOp {
+enum bit<4> InterpolationOp {
     NONE = 0x0,
     LEFT = 0x1,
-    RIGHT = 0x2
+    RIGHT = 0x2,
+    CHOOSE_LOW = 0x3,
+    CHOOSE_MID = 0x4,
+    CHOOSE_HIGH = 0x5
 }
 
 
@@ -13,9 +16,9 @@ typedef bit<5> div_lookup_key_t;
 
 // private control block, not called outside this file
 control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, in byterate_t t_mid,
-                            in exponent_t delta_t_log, out byterate_t t_new, in InterpolationOp interp_op) {
-    // Calculates t_new = t_mid +- ( numerator / denominator ) * delta_t  // ( + if interp_right, - if interp_left)
-
+                            in exponent_t delta_t_log, out byterate_t t_new) {
+    // Output t_diff = ( numerator / denominator ) * delta_t  
+    // The callee needs to calculate new_threshold = t_mid +- t_diff. ( + if interp_right, - if interp_left)
     div_lookup_key_t shifted_numerator;    // always <= denominator
     div_lookup_key_t shifted_denominator;  // first bit always 1, use last 4 bits
 
@@ -124,36 +127,11 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         }
     }
 
-    @hidden
-    action final_interpolation_result_left() {
-        t_new = t_mid - t_new;
-    }
-    @hidden
-    action final_interpolation_result_right() {
-        t_new = t_mid + t_new;
-    }
-    @hidden
-    table final_interpolation_result {
-        key = {
-            interp_op : exact;
-        }
-        actions = {
-            final_interpolation_result_left;
-            final_interpolation_result_right;
-        }
-        const entries = {
-            InterpolationOp.LEFT : final_interpolation_result_left();
-            InterpolationOp.RIGHT : final_interpolation_result_right();
-        }
-        size = 2;
-    }
-
     apply {
         shift_lookup_input.apply();
         approx_division_lookup.apply();
         shift_lookup_output.apply();
         shift_lookup_output_stage2.apply();
-        final_interpolation_result.apply();
     }
 }
 
@@ -175,10 +153,10 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
     byterate_t target_minus_hi;
 
 
-    InterpolationOp interp_op;
-    byterate_t interp_numerator;
-    byterate_t interp_denominator;
-
+    InterpolationOp interp_op = InterpolationOp.NONE;
+    byterate_t interp_numerator = 0;
+    byterate_t interp_denominator = 0;
+    byterate_t interp_output_tdiff = 0;
 
     @hidden
     action set_interpolate_left() {
@@ -198,18 +176,18 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
     }
     @hidden
     action choose_middle_candidate() {
-        interp_op = InterpolationOp.NONE;
-        new_threshold = threshold;
+        interp_op = InterpolationOp.CHOOSE_MID;
+        //new_threshold = threshold;
     }
     @hidden
     action choose_low_candidate() {
-        interp_op = InterpolationOp.NONE;
-        new_threshold = threshold_lo;
+        interp_op = InterpolationOp.CHOOSE_HIGH;
+        //new_threshold = threshold_lo;
     }
     @hidden
     action choose_high_candidate() {
-        interp_op = InterpolationOp.NONE;
-        new_threshold = threshold_hi;
+        interp_op = InterpolationOp.CHOOSE_LOW;
+        //new_threshold = threshold_hi;
     }
 
     
@@ -266,9 +244,22 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
             target_minus_hi  = target_rate - vlink_rate_hi;
             // Interpolate the new fair rate threshold
             choose_interpolation_action.apply();
-            if (interp_op != InterpolationOp.NONE) {
-                interpolate.apply(interp_numerator, interp_denominator, threshold,
-                                  candidate_delta_pow, new_threshold, interp_op); 
-            } 
+            interpolate.apply(interp_numerator, interp_denominator, threshold,
+                candidate_delta_pow, interp_output_tdiff); 
+
+            if(interp_op==InterpolationOp.NONE){
+                new_threshold=0; //bug
+            }else if(interp_op == InterpolationOp.LEFT){
+                new_threshold = threshold - interp_output_tdiff;
+            }else if(interp_op == InterpolationOp.RIGHT){
+                new_threshold = threshold + interp_output_tdiff;
+            }else if(interp_op == InterpolationOp.CHOOSE_LOW){
+                new_threshold = threshold_lo;
+            }else if(interp_op == InterpolationOp.CHOOSE_MID){
+                new_threshold = threshold;
+            }else if(interp_op == InterpolationOp.CHOOSE_HIGH){
+                new_threshold = threshold_hi;
+            }
     }
 }
+
