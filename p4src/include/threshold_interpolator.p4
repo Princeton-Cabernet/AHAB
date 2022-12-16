@@ -68,6 +68,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
     action output_too_small() {
         // Call this action if div_result_mantissa would be rightshifted to oblivion
         t_tmp = 0;
+        remaining_lshift = 0;
     }
 
     table shift_lookup_output {
@@ -98,6 +99,7 @@ control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, 
         actions = {
 #include "actions_and_entries/shift_lookup_output_stage2/action_list.p4inc"
         }
+        default_action = output_stage2_lshift_0();
         const entries = {
 #include "actions_and_entries/shift_lookup_output_stage2/const_entries.p4inc"
         }
