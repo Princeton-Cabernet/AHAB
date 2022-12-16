@@ -11,6 +11,7 @@ enum bit<2> InterpolationOp {
 #define  INTERPOLATION_DIVISION_LOOKUP_TBL_SIZE 512
 typedef bit<5> div_lookup_key_t;
 
+// Calculate an approximate division-then-multiplication for linear interpolation.
 // private control block, not called outside this file
 control InterpolateFairRate(in byterate_t numerator, in byterate_t denominator, in byterate_t t_mid,
                             in exponent_t delta_t_log, out byterate_t t_new, in InterpolationOp interp_op) {

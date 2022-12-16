@@ -1,5 +1,4 @@
 #pragma once
-// Standard headers for Ethernet, IPv4, TCP, and UDP
 
 #include "define.h"
 

@@ -1,3 +1,4 @@
+// For each vlink, generate one worker per epoch
 control WorkerGenerator(in epoch_t curr_epoch,
                          in vlink_index_t vlink_id,
                          out bit<1> work_flag) {

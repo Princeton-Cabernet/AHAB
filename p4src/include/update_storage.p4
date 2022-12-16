@@ -1,5 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
+// Saves and loads per-vlink state, including congestion flag and interpolated threshold for next epoch
 control UpdateStorage(in bit<1> is_worker,
     inout header_t hdr,
     in byterate_t vlink_capacity, in byterate_t vlink_demand,

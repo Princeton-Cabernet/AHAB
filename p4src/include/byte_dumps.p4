@@ -1,6 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 #include "define.h"
 
+// Accurately track real and hypothetical link rate, count non-dropped packets
 control ByteDumps(in vlink_index_t vlink_id,
                   in bytecount_t scaled_pkt_len,
                   in bit<1> drop_flag_lo,

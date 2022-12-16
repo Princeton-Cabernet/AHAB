@@ -1,5 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
+// Estimate per-flow rate using 3-row CMS-LPF estimator
 control RateEstimator(in bit<32> src_ip,
                       in bit<32> dst_ip,
                       in bit<8> proto,
@@ -12,25 +13,13 @@ control RateEstimator(in bit<32> src_ip,
     Lpf<bytecount_t, cms_index_t>(size=CMS_HEIGHT) lpf_2;
     Lpf<bytecount_t, cms_index_t>(size=CMS_HEIGHT) lpf_3;
 
-
     byterate_t cms_output_1_;
     byterate_t cms_output_2_;
     byterate_t cms_output_3_;
 
-
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_1;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_2;
     Hash<cms_index_t>(HashAlgorithm_t.CRC16) hash_3;
-    
-    
-    /* TODO: how to enforce this when using immediate hash indices???
-        Is setting sizeof(cms_index_t to be log_2(CMS_HEIGHT) sufficient?
-    action truncate_index(){
-	index1_ = index1_ & (CMS_HEIGHT-1);
-	index2_ = index2_ & (CMS_HEIGHT-1);
-	index3_ = index3_ & (CMS_HEIGHT-1);
-    }
-    */
 
     action read_cms_act1_() {
         cms_output_1_ = (byterate_t) lpf_1.execute(sketch_input, 
@@ -61,8 +50,6 @@ control RateEstimator(in bit<32> src_ip,
                                                                 1w0,
                                                                 dst_port}));
     }
-
-
 
     apply {
         read_cms_act1_();

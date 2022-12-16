@@ -17,22 +17,6 @@
 #include "include/worker_generator.p4"
 #include "include/update_storage.p4"
 
-
-/* TODO: where should the packet cloning occur?
-We should begin choosing a new candidate as soon as the window jumps.
-To detect the jump, we'll need a register that stores "last epoch updated" per-vlink.
-The window
-*/
-
-/*
-Tofino-Approximate fair dropping:
-- Load slice threshold, scale-up packet length:
-- Approximate flow rate using a decaying CMS
-- Set drop flag with probability 1 - min(1, T/Rate)
-- Feed non-dropped packets into a rate-measuring LPF
-- Adjust threshold based upon LPF output, using EWMA recurrence from AFD paper
-*/
-
 control SwitchIngress(
         inout header_t hdr,
         inout ig_metadata_t ig_md,
@@ -84,9 +68,6 @@ control SwitchIngress(
                              ig_md.dport,
                              ig_md.afd.scaled_pkt_len,
                              ig_md.afd.measured_rate);
-			     
-	// Debug rate output
-	hdr.ethernet.src_addr=(bit<48>) ig_md.afd.measured_rate;
 
         // Get real drop flag and two simulated drop flags
         bit<1> udp_drop_flag_lo = 0;
@@ -124,9 +105,6 @@ control SwitchIngress(
                            ecn_flag);
 
         if(tcp_isValid){
-            //if (ig_md.afd.congestion_flag == 0 || work_flag == 1) {
-            //    ig_dprsr_md.drop_ctl = 0;
-            //}else 
             if(tcp_drop_flag_mid!=0){
                 ig_dprsr_md.drop_ctl = 1;
             }else if(hdr.ipv4.ecn != 0 && ecn_flag!=0){
@@ -135,8 +113,7 @@ control SwitchIngress(
             }else if(ecn_flag!=0){
                 ig_dprsr_md.drop_ctl = 1;
             }
-            //TODO: output "rate>threshold_hi" separately from enforcer
-            //TODO: flag_lo=mid, flag_hi=0, but if (rate>1.5T) flag_hi=flag_mid
+            //override hypothetical rate accumulator
             udp_drop_flag_lo=tcp_drop_flag_mid;
             udp_drop_flag_hi=0;
         }else{//udp
@@ -149,7 +126,6 @@ control SwitchIngress(
             }
         }
          
-        //always dump
             // Deposit or pick up packet bytecounts to allow the lo/hi drop
             // simulations to work around true dropping.
             byte_dumps.apply(ig_md.afd.vlink_id,
@@ -225,8 +201,6 @@ control SwitchEgress(
         //also handles recirc header setInvalid()
     }
 }
-
-
 
 Pipeline(SwitchIngressParser(),
          SwitchIngress(),

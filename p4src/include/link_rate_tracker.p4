@@ -1,5 +1,7 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
+// Track bandwidth demand and actual sending rate per vlink.
+// Also track hypothetical sending rate for hi/lo threshold.
 control LinkRateTracker(in vlink_index_t vlink_id, 
                         in bytecount_t scaled_pkt_len, in bytecount_t scaled_pkt_len_all,
                         in bytecount_t scaled_pkt_len_lo, in bytecount_t scaled_pkt_len_hi,
@@ -18,7 +20,6 @@ control LinkRateTracker(in vlink_index_t vlink_id,
 
     Register<bytecount_t, vlink_index_t>(NUM_VLINKS) stored_vlink_demands;
 
-
     action rate_act() {
         vlink_rate = (byterate_t) current_rate_lpf.execute(scaled_pkt_len, vlink_id);
     }
@@ -34,7 +35,6 @@ control LinkRateTracker(in vlink_index_t vlink_id,
     action store_vlink_demand() {
         stored_vlink_demands.write(vlink_id, vlink_demand);
     }
-    
 
     apply {
         rate_act();

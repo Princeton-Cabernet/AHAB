@@ -1,5 +1,6 @@
 // Approx UPF. Copyright (c) Princeton University, all rights reserved
 
+// Lookup table from dstIP to vlink; also reads the vlink's capacity and routing egress port
 control VLinkLookup(in header_t hdr, inout afd_metadata_t afd_md,
                     out bit<9> ucast_egress_port, out bit<3> drop_ctl, 
                     out bit<1> bypass_egress) {

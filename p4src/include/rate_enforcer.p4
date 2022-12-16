@@ -11,6 +11,8 @@ struct drop_prob_pair_t {
     drop_prob_t lo;
 }
 
+// Drop packets with probability 1 - min(1, enforced rate threshold / measured_rate). 
+// Also calculate hypothetical drop rates for alternative thresholds hi/lo
 control RateEnforcer(in byterate_t measured_rate,
                      in byterate_t threshold_lo,
                      in byterate_t threshold_mid,
@@ -23,15 +25,12 @@ control RateEnforcer(in byterate_t measured_rate,
                      out bit<1> drop_flag_hi,
                      out bit<1> tcp_drop_flag_mid,
                      out bit<8> ecn_flag) {
-    /* This control block sets the drop flag with probability 1 - min(1, enforced_rate / measured_rate).
+    /* 
         Steps:
         - Approximate measured_rate, threshold_lo, threshold, and threshold_hi as i, j_lo, j, j_hi
         - Three lookup tables map (i, j*) to int( 2**sizeof(drop_prob_t) * (1 - min(1, j* / i)))
         - Compare lookup table output to an RNG value. If rng < val, mark to drop.
     */
-    // TODO: check congestion flag, only drop if its 1
-    // TODO: ensure candidates are not corrupted when only dropping during congestion
-
     drop_prob_t drop_probability = 0;     // set by lookup table to 1 - min(1, threshold / measured_rate)
     drop_prob_t drop_probability_lo = 0;  // set by lookup table to 1 - min(1, threshold_lo / measured_rate)
     drop_prob_t drop_probability_hi = 0;  // set by lookup table to 1 - min(1, threshold_hi / measured_rate)
