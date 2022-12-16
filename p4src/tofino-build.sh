@@ -17,9 +17,9 @@ fi
 
 if [ -n "$SDE_INSTALL" ]; then
 	echo "Installing compiler output in $SDE_INSTALL"
-	sudo mv afd.tofino/afd.conf $SDE_INSTALL/share/p4/targets/tofino/afd.conf
-	sudo rm -rf $SDE_INSTALL/afd.tofino
-	sudo mv afd.tofino $SDE_INSTALL/
+	cp afd.tofino/afd.conf $SDE_INSTALL/share/p4/targets/tofino/afd.conf
+	rm -rf $SDE_INSTALL/afd.tofino
+	cp -r afd.tofino $SDE_INSTALL/
 else
 	echo "Var SDE_INSTALL not set. Not installing compiler output"
 fi
