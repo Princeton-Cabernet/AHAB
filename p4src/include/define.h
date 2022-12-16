@@ -14,6 +14,8 @@
 
 #define DEFAULT_THRESHOLD 1024
 
+#define THRESHOLD_USE_INTERPOLATE 
+
 #define BYTERATE_T_SIGN_BIT 0x80000000
 typedef bit<11> cms_index_t;
 typedef bit<bytecount_t_width> bytecount_t;
