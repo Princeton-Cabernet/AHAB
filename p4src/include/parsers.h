@@ -152,6 +152,7 @@ parser SwitchEgressParser(
     state parse_mirror_md {
         mirror_h mirror_md;
         pkt.extract(mirror_md);
+        eg_md.afd.setValid();
         eg_md.afd.is_worker = 1;
         // Move mirrored header fields to their expected locations.
         eg_md.afd.bmd_type = mirror_md.bmd_type;
