@@ -1,7 +1,7 @@
-1 : output_stage2_rshift_1();
-2 : output_stage2_rshift_2();
-3 : output_stage2_rshift_3();
-4 : output_stage2_rshift_4();
-5 : output_stage2_rshift_5();
-6 : output_stage2_rshift_6();
-7 : output_stage2_rshift_7();
+1 : output_stage2_lshift_1();
+2 : output_stage2_lshift_2();
+3 : output_stage2_lshift_3();
+4 : output_stage2_lshift_4();
+5 : output_stage2_lshift_5();
+6 : output_stage2_lshift_6();
+7 : output_stage2_lshift_7();

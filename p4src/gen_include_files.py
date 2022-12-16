@@ -152,7 +152,7 @@ def gen_files__shift_lookup_output_stage2():
     """
     max_shift = num_second_shifts - 1
     min_shift = 1
-    action_namef = "output_stage2_rshift_{}"
+    action_namef = "output_stage2_lshift_{}"
     action_bodyf = "    t_new = t_tmp << {};"
 
     dir_name = base_dir + dir_shift_lookup_output_stage2

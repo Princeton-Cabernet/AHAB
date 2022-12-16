@@ -1,28 +1,28 @@
 
-action output_stage2_rshift_1() {
+action output_stage2_lshift_1() {
     t_new = t_tmp << 1;
 }
 
-action output_stage2_rshift_2() {
+action output_stage2_lshift_2() {
     t_new = t_tmp << 2;
 }
 
-action output_stage2_rshift_3() {
+action output_stage2_lshift_3() {
     t_new = t_tmp << 3;
 }
 
-action output_stage2_rshift_4() {
+action output_stage2_lshift_4() {
     t_new = t_tmp << 4;
 }
 
-action output_stage2_rshift_5() {
+action output_stage2_lshift_5() {
     t_new = t_tmp << 5;
 }
 
-action output_stage2_rshift_6() {
+action output_stage2_lshift_6() {
     t_new = t_tmp << 6;
 }
 
-action output_stage2_rshift_7() {
+action output_stage2_lshift_7() {
     t_new = t_tmp << 7;
 }
