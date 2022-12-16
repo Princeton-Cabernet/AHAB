@@ -1,3 +1,4 @@
+0 : output_stage2_lshift_0();
 1 : output_stage2_lshift_1();
 2 : output_stage2_lshift_2();
 3 : output_stage2_lshift_3();

@@ -151,7 +151,7 @@ def gen_files__shift_lookup_output_stage2():
     Table shift_lookup_output_stage2 that finishes off the shifting started by shift_lookup_output
     """
     max_shift = num_second_shifts - 1
-    min_shift = 1
+    min_shift = 0
     action_namef = "output_stage2_lshift_{}"
     action_bodyf = "    t_new = t_tmp << {};"
 

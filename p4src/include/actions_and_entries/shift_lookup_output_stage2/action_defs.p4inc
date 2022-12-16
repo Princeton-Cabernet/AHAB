@@ -1,4 +1,8 @@
 
+action output_stage2_lshift_0() {
+    t_new = t_tmp << 0;
+}
+
 action output_stage2_lshift_1() {
     t_new = t_tmp << 1;
 }
