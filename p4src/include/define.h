@@ -35,3 +35,11 @@ typedef bit<3> mirror_type_t;
 const mirror_type_t MIRROR_TYPE_INVALID = 0;
 const mirror_type_t MIRROR_TYPE_I2E = 1;
 
+// ternary match rules for sign bit
+// Width of these values is sizeof(byterate_t)
+#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
+#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
+#define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
+#define TERNARY_DONT_CARE 32w0 &&& 32w0
+//alias
+#define TERNARY_NONNEG_CHECK TERNARY_POS_CHECK

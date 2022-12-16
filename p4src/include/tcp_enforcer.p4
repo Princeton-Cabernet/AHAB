@@ -43,10 +43,6 @@ control TcpEnforcer(in byterate_t measured_rate,
     bit<8> mid_exceeded_flag = 0;
     bit<8> hi_exceeded_flag = 0;
 
-// width of this key and mask should equal sizeof(byterate_t)
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_NONNEG_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
     action set_neither_exceeded() {
         low_exceeded_flag = 0;
         mid_exceeded_flag = 0;

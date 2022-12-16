@@ -211,13 +211,7 @@ control ThresholdInterpolator(in byterate_t vlink_rate,
         interp_op = InterpolationOp.NONE;
         new_threshold = threshold_hi;
     }
-
-    
-    // Width of these values is sizeof(byterate_t)
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_ZERO_CHECK 32w0 &&& 32w0xffffffff
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
+ 
     @hidden
     table choose_interpolation_action {
         key = {

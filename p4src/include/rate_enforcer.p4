@@ -53,10 +53,6 @@ control RateEnforcer(in byterate_t measured_rate,
     bit<1> mid_exceeded_flag = 0;
     bit<1> hi_exceeded_flag = 0;
 
-// width of this key and mask should equal sizeof(byterate_t)
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_NONNEG_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
     @hidden
     action set_lo_exceeded_flag(bit<1> flag) { 
         lo_exceeded_flag = flag;

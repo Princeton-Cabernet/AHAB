@@ -78,11 +78,6 @@ control UpdateStorage(in bit<1> is_worker,
     }
     action nop_(){}
 
-
-#define TERNARY_NEG_CHECK 32w0x80000000 &&& 32w0x80000000
-#define TERNARY_POS_CHECK 32w0 &&& 32w0x80000000
-#define TERNARY_DONT_CARE 32w0 &&& 32w0
-
     table read_or_write_congestion_flag {
         key = {
             is_worker : exact;
