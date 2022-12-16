@@ -12,7 +12,6 @@
 #include "include/rate_estimator.p4"
 #include "include/rate_enforcer.p4"
 #include "include/threshold_interpolator.p4"
-#include "include/max_rate_estimator.p4"
 #include "include/link_rate_tracker.p4"
 #include "include/byte_dumps.p4"
 #include "include/worker_generator.p4"
@@ -174,7 +173,6 @@ control SwitchEgress(
         inout egress_intrinsic_metadata_for_output_port_t eg_oport_md) {
 
     ThresholdInterpolator() threshold_interpolator;
-    MaxRateEstimator() max_rate_estimator;
     LinkRateTracker() link_rate_tracker;
     UpdateStorage() update_storage;
 
